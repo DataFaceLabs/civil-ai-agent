@@ -1,230 +1,269 @@
-# Agent Architecture
+# Architecture
 
-## System Overview
+## Status
 
+This is a target design, not an implementation commitment.
+
+The architecture should be stable at the product-contract level before we lock into a
+specific agent runtime. AgentCore and Strands are strong candidates, but the first
+design priority is defining durable boundaries among the frontend workbench, agent
+service, tool layer, backend data platform, artifact store, and evaluation system.
+
+## Design Principles
+
+- `civil-ai-be` remains the source of truth for governed data facts, entity resolution,
+  service views, provenance, project snapshots, and exports.
+- `civil-ai-fe` remains the user-facing workbench for project state, review, editing,
+  maps, sections, exhibits, and approvals.
+- `civil-ai-agent` owns reasoning, tool orchestration, artifact creation, explanation,
+  and QA behavior.
+- The agent should not query arbitrary S3 objects directly in the normal product path.
+  It should use BE APIs and approved tools that preserve source status and provenance.
+- Chat is not the system of record. Saved artifacts are.
+- Every generated artifact must be inspectable.
+
+## Target System
+
+```text
+┌────────────────────────────────────────────────────────────────────┐
+│ civil-ai-fe workbench                                               │
+│ project, map, sections, docs, exhibits, review, approval            │
+└──────────────────────────────┬─────────────────────────────────────┘
+                               │ workbench context + user request
+                               ▼
+┌────────────────────────────────────────────────────────────────────┐
+│ civil-ai-agent API                                                  │
+│ context adapter, auth boundary, artifact response contract          │
+├────────────────────────────────────────────────────────────────────┤
+│ Orchestration layer                                                 │
+│ candidate: Strands, graph workflow, or custom planner               │
+├────────────────────────────────────────────────────────────────────┤
+│ Tool layer                                                          │
+│ BE facts, provenance, source retrieval, document search, drafting,  │
+│ QA, artifact creation, approved actions                             │
+├────────────────────────────────────────────────────────────────────┤
+│ Runtime layer                                                       │
+│ candidate: AWS AgentCore, container service, or serverless API       │
+├────────────────────────────────────────────────────────────────────┤
+│ Trace, eval, policy, and artifact persistence adapters              │
+└──────────────┬───────────────────────────────┬─────────────────────┘
+               │                               │
+               ▼                               ▼
+┌──────────────────────────────┐   ┌─────────────────────────────────┐
+│ civil-ai-be                   │   │ Approved external/source tools   │
+│ entity, facts, provenance,    │   │ code text, public portals, docs, │
+│ project snapshots, exports    │   │ uploaded files, search/retrieval │
+└──────────────────────────────┘   └─────────────────────────────────┘
+               │
+               ▼
+┌────────────────────────────────────────────────────────────────────┐
+│ S3 data lake and serving layer                                      │
+│ source/raw -> curated parquet -> current relations -> svc_section_* │
+└────────────────────────────────────────────────────────────────────┘
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Engineer / Reviewer                      │
-│          (types address, asks questions, reviews draft)       │
-└───────────────────────────┬─────────────────────────────────┘
-                            │ conversation
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    AWS AgentCore                             │
-│                                                             │
-│   ┌─────────────────────────────────────────────────────┐   │
-│   │                Strands Orchestrator                  │   │
-│   │                                                     │   │
-│   │  Session memory ◄──────► Tool registry              │   │
-│   │  (parcel context,        (see tool list below)      │   │
-│   │   conversation turns)                               │   │
-│   │                                                     │   │
-│   │        ┌──────────────────────────────┐             │   │
-│   │        │     Claude claude-sonnet-4-6              │             │   │
-│   │        │  (reasoning + generation)    │             │   │
-│   │        └──────────────────────────────┘             │   │
-│   └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-         │                │               │
-         ▼                ▼               ▼
-  civil-ai-be        MuniCode /       TCEQ / FEMA /
-  FastAPI /report    TAC viewer       permit portals
-  (Athena data lake) (regulatory      (live lookups)
-                      text)
+
+## Backend Boundary
+
+The agent should treat BE APIs as the governed data contract.
+
+Known BE surfaces that matter to the agent:
+
+| Capability | BE surface |
+| --- | --- |
+| Resolve address or parcel to entity | `/v1/entities/resolve` |
+| Fetch one section's facts | `/v1/sections/{section_id}/facts/{entity_id}` |
+| Fetch all facts for an entity | `/v1/entities/{entity_id}/facts` |
+| Inspect provenance | `/v1/entities/{entity_id}/provenance` |
+| Export entity evidence | `/v1/entities/{entity_id}/export` |
+| Create and retrieve projects | `/v1/projects`, `/v1/projects/{id}` |
+| Export project snapshot | `/v1/projects/{id}/export` |
+| FE site lookup by address or parcel | `/v1/fe/site/by-address`, `/v1/fe/site/by-parcel` |
+| Catalog/schema discovery | `/v1/catalog/*` |
+| Legacy report workflow | `/report`, `/report/{run_id}`, `/report/{run_id}/domain/{n}` |
+
+The agent should prefer the `/v1` entity/project/facts/provenance APIs for new design.
+The older `/report` flow can remain a compatibility path until the team retires it.
+
+## S3 And Medallion Alignment
+
+The data platform uses a medallion-style architecture:
+
+```text
+source/raw inputs -> curated datasets -> current relations -> service views -> APIs
 ```
 
----
+The agent should care about the service and API layers rather than raw storage layout.
+When the agent needs freshness or lineage, it should request provenance and snapshot
+metadata through BE rather than bypassing BE.
 
-## AWS AgentCore Role
+## Frontend Boundary
 
-AgentCore provides:
-- **Managed execution environment** — scales automatically, handles session state between
-  API calls
-- **Tool invocation** — dispatches tool calls with schema validation, retries, and
-  error surfacing to the agent
-- **Access control** — IAM roles isolate the agent's read-only access to S3/Athena from
-  civil-ai-be's write permissions
-- **Audit logging** — all tool calls logged to CloudWatch for review and debugging
-
-The agent is stateless between sessions. Each new study begins with a fresh context;
-the engineer may resume a session using a `session_id`.
-
----
-
-## Strands Orchestrator Role
-
-Strands manages multi-step reasoning:
-- Decides which tools to call and in what order for a given user request
-- Chains tool outputs into context for the next reasoning step
-- Manages the `{section_context}` window — passes relevant section facts to the LLM
-  when generating each study section
-- Handles partial data: if `query_section_facts()` returns `null` for a field, Strands
-  directs the agent to either (a) fetch from a secondary source or (b) surface the gap
-  to the engineer
-
----
-
-## Tool Registry
-
-Every fact asserted in generated output must be produced by a tool call —
-not hallucinated from training data.
-
-### Core Data Tools
-
-| Tool | Source | Returns |
-|------|--------|---------|
-| `query_section_facts(address, section_id)` | civil-ai-be `/report` → Athena | Structured section facts + `source_refs` JSON for the requested section |
-| `query_all_sections(address)` | civil-ai-be `/report` → Athena (parallel) | All 9 section fact objects for a given address, with citations |
-| `get_parcel_metadata(address)` | civil-ai-be parcel endpoint | Parcel ID, acreage, legal description, CAD record, owner |
-
-### Regulatory Lookup Tools
-
-| Tool | Source | Returns |
-|------|--------|---------|
-| `fetch_ldc_section(section_id)` | MuniCode API | City of Austin LDC section text |
-| `fetch_tac_section(title, chapter, section)` | Texas SOS TAC viewer | Texas Administrative Code section text |
-| `fetch_travis_county_code(section_id)` | EncodePlus API | Travis County Code section text |
-| `lookup_firm_panel(lat, lon)` | FEMA MSC API | FIRM panel number, effective date, flood zone |
-| `lookup_fema_flood_zone(entity_id)` | civil-ai-be flood_current view | FEMA zone, floodway flag, fld_ar_id |
-
-### Permit / Agency Lookup Tools
-
-| Tool | Source | Returns |
-|------|--------|---------|
-| `search_tcad(parcel_id)` | TravisCAD search | Owner, deed doc, property values, CAD discrepancies |
-| `search_tccsearch(parcel_id)` | Travis County Clerk | Plat records, development agreements, deed restrictions |
-| `lookup_tceq_ccn(lat, lon)` | TCEQ CCN viewer | Water and wastewater CCN numbers and provider names |
-| `lookup_edwards_aquifer_zone(lat, lon)` | TCEQ Edwards viewer | Zone (Recharge / Contributing / Transition / Outside) |
-| `lookup_austin_property_profile(address)` | Austin Property Profile | Watershed, zoning, utility grid map refs, OSSF permits |
-| `search_permit_records(parcel_id, permit_type)` | Austin DSD / county portals | Active permits, OSSF permit IDs, pending applications |
-
-### Document Generation Tools
-
-| Tool | Use |
-|------|-----|
-| `draft_section(section_id, facts, user_notes)` | Generate section language in ATX Civil voice |
-| `generate_summary(all_sections)` | Generate §4.0 Summary with recommendations |
-| `flag_infeasibility(section_id, reason)` | Surface an infeasibility signal with supporting evidence |
-| `generate_gap_report(address)` | List all missing fields and their recommended sources |
-
----
-
-## Session State Model
-
-Each session carries:
+The FE should not send vague prompts alone. It should send a workbench context envelope:
 
 ```json
 {
-  "session_id": "uuid",
-  "address": "1801 Hur Industrial Blvd, Cedar Park TX 78641",
-  "entity_id": "abc12345-...",
-  "parcel_context": { ...parcel metadata... },
-  "section_facts": { "flood": {...}, "zoning": {...}, ... },
-  "drafted_sections": { "3.1": "...", "3.2": "..." },
-  "data_gaps": ["esd_number", "fire_flow_test_status"],
-  "user_notes": { "3.5": "Engineer confirmed ESD#11 covers this area" },
-  "conversation_history": [ ...last N turns... ]
+  "project_id": "proj_123",
+  "entity_id": "ent_456",
+  "snapshot_date": "2026-06-15",
+  "active_section_id": "utilities",
+  "selected_artifact_ids": ["finding_1"],
+  "selected_source_ids": ["fema_nfhl"],
+  "selected_map_layers": ["fema_nfhl", "ccn_water"],
+  "proposed_use": "commercial warehouse",
+  "user_role": "analyst",
+  "request": "Draft the utility availability finding."
 }
 ```
 
-`section_facts` is populated lazily — fetched on first reference to a section.
-`drafted_sections` accumulates as the engineer requests each section.
-`data_gaps` grows as tools return null values; the agent proactively surfaces these.
+The agent response should return structured artifacts and UI actions, not only natural
+language.
 
----
+## Agent Response Contract
 
-## Agent Capability Modes
-
-### Mode 1: Conversational Q&A
-User asks a question about the parcel. Agent calls the minimum necessary tools, answers
-in plain language, cites source.
-
-> "Is this property in a flood zone?"  
-> → `query_section_facts(address, "flood")` → "Yes, the northwestern portion of the
-> property falls in FEMA Zone AE per FIRM panel 48453C0115J (effective Jan 22, 2020).
-> A fully-developed floodplain study is required."
-
-### Mode 2: Section Draft Generation
-User requests a specific section. Agent pulls all required facts, drafts language in
-ATX Civil voice, presents to engineer for review.
-
-> "Draft section 3.3 Watershed"  
-> → `query_section_facts(address, "watershed")` + `query_section_facts(address, "flood")`  
-> → Full watershed narrative with HUC12, Edwards Aquifer zone, watershed classification,
-> WPAP flag, IC limits — all with inline citations
-
-### Mode 3: Full Study First Draft
-User requests the full study. Agent generates all 19 sections sequentially, calls
-`query_all_sections()` first for efficiency, then drafts in section order using
-accumulated context.
-
-### Mode 4: Gap Discovery
-User asks "what information do I still need?" Agent runs `generate_gap_report()` which
-identifies all null fields and proposes specific actions (e.g., "Fire flow test not yet
-ordered — contact ESD#11 to initiate").
-
----
-
-## Data Flow for Section Generation
-
-```
-1. query_all_sections(address)
-        │
-        ▼
-2. Receive structured facts + source_refs per section
-        │
-        ├─ For each null field:
-        │    └─ Try secondary tool (permit lookup, regulatory text fetch)
-        │
-        ▼
-3. Build section_context:
-   facts + citations + user_notes + relevant regulatory text
-        │
-        ▼
-4. draft_section(section_id, section_context)
-   → Claude generates in ATX Civil voice
-   → Inline citations from source_refs
-   → Hedge phrases for unverified values
-        │
-        ▼
-5. Return draft to engineer for review
-   + data_gap list for any remaining null fields
-```
-
----
-
-## Citation Contract
-
-Every factual value in generated text must have a citation. The citation format follows
-`civil-ai-be`'s `source_refs` schema:
+The frontend should be able to render an agent response as a durable workbench update.
 
 ```json
-[
-  {
-    "citation_type": "data",
-    "source_id": "fema_nfhl",
-    "source_record_id": "48453C0115J",
-    "citation_url": "https://www.fema.gov/flood-maps/national-flood-hazard-layer"
-  },
-  {
-    "citation_type": "rule",
-    "source_id": "coa_ldc",
-    "source_record_id": "25-8-261",
-    "citation_url": "https://library.municode.com/TX/Austin/codes/land_development_code?nodeId=..."
+{
+  "message": "Wastewater coverage is known, but capacity is not confirmed.",
+  "artifacts": [
+    {
+      "type": "finding",
+      "title": "Wastewater service requires provider confirmation",
+      "status": "partial",
+      "section_id": "utilities",
+      "claims": [
+        {
+          "text": "The site is within a wastewater provider service area.",
+          "source_refs": ["src_utility_ccn_1"]
+        }
+      ],
+      "data_gaps": [
+        "Nearest public wastewater main and capacity are not available."
+      ],
+      "recommended_actions": [
+        {
+          "label": "Confirm capacity with provider",
+          "approval_required": true
+        }
+      ]
+    }
+  ],
+  "trace_summary": {
+    "tools_used": ["get_section_facts", "get_entity_provenance"],
+    "sources_used": ["tceq_ccn"]
   }
-]
+}
 ```
 
-The agent must never assert a regulatory value (setback distance, IC limit, IFC section)
-without calling a tool that returns the governing rule citation. Training-data knowledge
-of codes is used only to decide which tool to call, not to provide the answer directly.
+## Runtime Options
 
----
+### AWS AgentCore
 
-## Security Model
+AgentCore is a strong fit if the team wants an AWS-native managed runtime with IAM
+integration, session handling, managed tool execution, centralized audit logging, and
+operational controls.
 
-- The agent has **read-only** access to `s3://civilai-data/dev/` and the Athena
-  `civilai` database via a restricted IAM role
-- AWS credentials for the agent environment are separate from civil-ai-be's ETL role
-- No PII is stored in session state beyond the property address
-- All tool call logs are retained in CloudWatch for 90 days
+Use AgentCore if:
+
+- The agent will run in AWS alongside the data platform.
+- IAM isolation and CloudWatch-style audit are important early.
+- The team wants managed session/tool infrastructure.
+- We expect multiple agent entry points or future external integrations.
+
+Watch-outs:
+
+- Keep business logic out of runtime-specific glue.
+- Do not make FE or BE contracts depend on AgentCore-specific concepts.
+- Confirm support for trace export, human approval flows, and artifact persistence.
+
+### Strands
+
+Strands is a strong fit if we need explicit orchestration over multi-step research and
+drafting workflows.
+
+Use Strands if:
+
+- We want tool routing, planning, and specialized workflows to be declared explicitly.
+- We need repeatable section-generation workflows.
+- We want clear separation between planning, retrieval, drafting, QA, and action
+  recommendation.
+
+Watch-outs:
+
+- Keep tool contracts framework-agnostic.
+- Avoid hiding product policy inside prompt-only behavior.
+- Ensure traces are visible to the workbench and evaluation harness.
+
+### Custom Agent Service
+
+A custom service may be enough for early phases if the first product surfaces are narrow:
+
+- Retrieve facts.
+- Draft section.
+- Run QA.
+- Save artifact.
+
+This path may reduce initial complexity, but it can become harder to govern if tool and
+approval flows grow quickly.
+
+## Recommended Architecture Decision
+
+Design framework-independent contracts now:
+
+- Workbench context envelope
+- Tool schemas
+- Artifact schemas
+- Source/provenance contract
+- Approval policy
+- Trace/evaluation contract
+
+Prototype AgentCore + Strands behind those contracts. Treat them as replaceable
+implementation choices until we validate:
+
+- Developer ergonomics
+- Trace quality
+- Runtime observability
+- Tool policy enforcement
+- Human approval flow
+- Cost and latency
+
+## Context And Memory
+
+The agent should maintain short-lived conversational context, but durable memory belongs
+to project artifacts.
+
+Durable project state should include:
+
+- Project metadata
+- Resolved entity and snapshot date
+- Proposed use
+- Saved findings
+- Saved risks
+- Saved source bundles
+- Draft sections
+- User/SME notes
+- Review statuses
+- Exports
+
+Conversation history can help the next turn, but it should never be the only place where
+a decision or finding exists.
+
+## Security And Governance
+
+- Use read-only BE data access for investigation tools.
+- Require explicit user approval for mutating actions.
+- Log tool calls, source IDs, prompts, generated artifacts, and approval events.
+- Preserve BE source status values such as complete, partial, ambiguous, unavailable,
+  not_applicable, and insufficient_data.
+- Do not allow unrestricted data lake access from the agent.
+- Enforce user/project permissions at the workbench and agent API boundary.
+
+## Open Decisions
+
+- Whether AgentCore is the initial runtime or a later hardening target.
+- Whether Strands is used for all orchestration or only complex workflows.
+- Where artifact persistence lives before the FE is hardened.
+- Whether source document retrieval uses a dedicated document index or BE-managed
+  document APIs.
+- How live public source lookups are rate-limited, cached, and provenance-stamped.
+- Which actions are allowed in POC, pilot, and production modes.

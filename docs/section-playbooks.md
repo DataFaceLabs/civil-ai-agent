@@ -4,7 +4,13 @@ Per-section guidance for the agent: what data facts to pull, what boilerplate to
 what jurisdiction variations exist, and what infeasibility signals to watch for.
 
 Based on analysis of 20 ATXCivil feasibility studies (2022–2025).  Section numbering
-follows the standard 3.1–3.19 template used in 17 of 20 studies.
+follows the standard 3.1–3.19 template used in most studies.
+
+The template is the starting point, not a rigid form. Real reports expand, condense,
+merge, or reframe sections when the proposed use, jurisdiction, evidence quality, or
+dominant feasibility constraint requires it. See
+[Template And Section Guidance](template-and-section-guidance.md) for the product rule
+on when and why the agent should support template deviations.
 
 ---
 
