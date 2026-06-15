@@ -233,9 +233,14 @@ a value that may be wrong.
 | OSSF soil evaluation pending | "An OSSF soil evaluation (perc test) will be required to confirm suitability." |
 | ERI not yet determined | "An Erosion and Sedimentation Control Assessment (ERI) may be required; final determination will be made by CoA Watershed Protection at pre-submittal." |
 
-**Never** use phrases like "we believe," "we think," "it appears," or "probably."
-Engineering documents are assertive. If something is unknown, say it is unknown and
-state what action is required.
+Avoid weak phrases like "we believe," "we think," or "probably." Engineering documents
+are assertive. If something is unknown, say it is unknown and state what action is
+required.
+
+The phrase "appears to be feasible" is allowed only as a formal feasibility posture in
+the summary when the preceding sections support that conclusion and unresolved
+conditions are listed. Do not use "appears" as a substitute for evidence in factual
+sections.
 
 ---
 

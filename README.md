@@ -1,131 +1,120 @@
 # civil-ai-agent
 
-AI agent that produces, explains, and validates land-development feasibility studies
-for the Austin metroplex — powered by **AWS AgentCore** and the **Strands** orchestration
-framework.
+Design and implementation home for the Civil AI Agent supporting Project Landmark.
 
----
+The agent is the AI-assisted analyst layer over the Civil AI data platform and
+frontend workbench. Its job is not merely to answer parcel questions. Its job is to
+help analysts convert governed parcel, jurisdiction, environmental, utility, code,
+document, and exhibit evidence into inspectable feasibility artifacts that can become
+draft report sections, risk findings, permit checklists, recommendations, and reviewed
+customer deliverables.
 
-## What This Repo Does
+## Current Status
 
-A land-development feasibility study takes an experienced civil engineer 4–6 weeks to
-complete manually. It requires querying ~20 agencies, cross-referencing regulatory codes
-across city, county, state, and federal layers, and writing ~25 pages of narrative that
-follows a precise professional template.
+This repository is currently in design mode. The backend data platform and frontend
+workbench are under active parallel development, and this repo should not assume either
+surface is final.
 
-`civil-ai-agent` is the AI interface on top of that process. It:
+The design docs in this repo are intended to answer four questions before agent code is
+written:
 
-1. **Answers questions about a parcel** — "Is this property in the Edwards Aquifer Recharge
-   Zone?", "What are the impervious cover limits?", "Who is the water provider?"
-2. **Generates section language** — drafts each of the 19 study sections in the ATX Civil
-   professional voice, citing actual data facts pulled from the data lake
-3. **Surfaces data gaps** — identifies which fields are missing for a given parcel and
-   suggests where to find them (third-party API, field visit, permit lookup)
-4. **Flags infeasibility signals early** — OSSF minimum lot size failure, Zone A flood
-   study required, de-annexation impact on governing regulations
-5. **Retrieves live regulatory content** — looks up MuniCode LDC sections, TAC rules,
-   TCEQ permit status, FEMA FIRM panels when the data lake doesn't have the answer
+1. What problem is the Civil AI Agent solving?
+2. What data, source evidence, and workbench context does the agent need?
+3. What artifacts should the agent create, save, explain, and revise?
+4. Which architecture choices should remain flexible until the contracts are validated?
 
----
+## Product Principle
 
-## Two-Repo Architecture
+The agent participates in the analyst's artifact lifecycle, not just the conversation.
 
-```
-civil-ai-be          civil-ai-agent
-(data platform)      (AI interface)
-     │                     │
-     ▼                     ▼
- S3 + Athena  ◄────── Tool: query_section_facts()
- FastAPI /report        Tool: fetch_regulatory_text()
-                        Tool: search_permit_records()
-                        Tool: geocode_address()
-                             │
-                             ▼
-                       AWS AgentCore
-                       Strands Orchestrator
-                             │
-                             ▼
-                       Section Language
-                       + Citations
-                       + Gap Report
+The expected loop is:
+
+```text
+observe -> explain -> investigate -> create artifact -> validate -> act -> save/share
 ```
 
-**`civil-ai-be`** ([DataFaceLabs/civil-ai-be](https://github.com/DataFaceLabs/civil-ai-be))
-owns the data platform: S3 data lake, Athena query layer, ETL overlay builders, and
-the FastAPI `/report` endpoint that returns structured section facts for a given address.
-See its [Data Requirements Document](https://github.com/DataFaceLabs/civil-ai-be/blob/main/docs/reference/data_requirements.md)
-for the full field catalog and coverage map.
+Conversation is a control surface. The system of record is the structured project
+artifact set saved through the workbench.
 
-**`civil-ai-agent`** (this repo) owns the AI layer: the agent that uses those facts as
-context, generates professional narrative, reasons about regulatory constraints, and
-converses with the engineer/reviewer.
+## Repository Boundaries
 
----
+`civil-ai-be` owns the data platform:
 
-## Tech Stack
+- S3 data lake and medallion architecture
+- Curated parcel, overlay, and reference data
+- Service views and API-facing facts
+- Entity resolution, section facts, provenance, project snapshots, and exports
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Agent runtime | AWS AgentCore | Managed agent execution, session state, tool invocation |
-| Orchestration | Strands | Multi-step reasoning, tool chaining, memory |
-| LLM | Claude claude-sonnet-4-6 (Anthropic) | Language generation; regulatory reasoning |
-| Data layer | civil-ai-be FastAPI + Athena | Section facts, citations, overlays |
-| Regulatory text | MuniCode API, TAC viewer, direct URL fetch | Live code lookups |
+`civil-ai-fe` owns the user workbench:
 
----
+- Project setup and project state
+- Analyst workflow surface
+- Map, section, source, exhibit, and draft views
+- User review, approval, and editing workflows
 
-## Repository Structure
+`civil-ai-agent` owns the agentic layer:
 
-```
-civil-ai-agent/
-├── README.md                    ← you are here
-├── docs/
-│   ├── architecture.md          ← AWS AgentCore + Strands system design
-│   ├── atx-civil-writing-guide.md  ← ATX Civil voice, tone, regulatory style
-│   ├── section-playbooks.md     ← Per-section data requirements + language patterns
-│   └── data-catalog.md          ← What the data lake provides, what's missing
-├── src/
-│   └── (agent implementation — coming in Sprint 1)
-└── tests/
-    └── (coming in Sprint 1)
-```
+- Agent behavior and product rules
+- Tool contracts and orchestration design
+- Workbench context envelope
+- Artifact schemas
+- Citation, provenance, and inspectability rules
+- Evaluation strategy
+- Future implementation of the agent runtime
 
----
+## Documentation Map
 
-## Documentation Guide
+Read the docs in this order:
 
-Before writing a line of agent code, read these docs in order:
+1. [Agent Design](docs/agent-design.md)
+   - Goals, purpose, non-purpose, users, artifacts, capability modes, and guardrails.
 
-1. **[Architecture](docs/architecture.md)** — how the agent connects to the data lake and
-   what tools it has
-2. **[ATX Civil Writing Guide](docs/atx-civil-writing-guide.md)** — the professional voice
-   the agent must produce; derived from analysis of 20 actual feasibility studies
-3. **[Section Playbooks](docs/section-playbooks.md)** — per-section data requirements,
-   boilerplate patterns, jurisdiction variations, and infeasibility flags
-4. **[Data Catalog](docs/data-catalog.md)** — what's live in the data lake today vs. what
-   the agent must retrieve from third-party sources
+2. [Architecture](docs/architecture.md)
+   - Target architecture, integration boundaries, AgentCore/Strands decision framing,
+     runtime layers, security, and data flow.
 
----
+3. [Data Alignment](docs/data-alignment.md)
+   - How the agent aligns with S3, the backend service views, current BE APIs, section
+     facts, provenance, missing fields, and API gaps.
 
-## Relationship to ATX Civil's Workflow
+4. [Readiness Gates](docs/readiness-gates.md)
+   - Prerequisites for implementation, pilot, and production, including BE data lake
+     completeness and validation gates.
 
-ATX Civil Engineers currently:
-1. Receive a client address and project description
-2. Query ~20 agencies manually (TCAD, FEMA, TCEQ, city GIS portals, utility contacts)
-3. Write the report in Word using a template with `{PLACEHOLDER}` codes
-4. Review and stamp
+5. [Implementation Roadmap](docs/implementation-roadmap.md)
+   - Delivery phases, epics, stories, cross-team dependencies, and MVP sequencing.
 
-This agent targets steps 2 and 3 — the research and first-draft generation. The engineer
-retains step 4 (professional judgment, PE stamp). The agent is a powerful first-draft tool,
-not an autonomous document generator.
+6. [Workbench Integration](docs/workbench-integration.md)
+   - How the agent appears in the frontend workbench, what context it receives, and how
+     it creates durable project artifacts.
 
-**Critical constraint:** Every factual claim in the generated report must be traceable to
-a source citation (data source URL or statute reference). The agent must never assert a
-regulatory value without citing the governing rule.
+7. [Tooling and Orchestration](docs/tooling-and-orchestration.md)
+   - Tool taxonomy, internal specialist tools, approval classes, and tool result
+     contracts.
 
----
+8. [Template and Section Guidance](docs/template-and-section-guidance.md)
+   - How the ATX Civil template should guide the agent, why SMEs deviate, and what each
+     feasibility section is meant to accomplish.
 
-## Status
+9. [Section Playbooks](docs/section-playbooks.md)
+   - Detailed per-section drafting and data guidance derived from real feasibility
+     studies.
 
-Documentation foundation: ✅ (this commit)  
-Agent implementation: 🔲 (see [civil-ai-be roadmap](https://github.com/DataFaceLabs/civil-ai-be/blob/main/docs/roadmap.md))
+10. [ATX Civil Writing Guide](docs/atx-civil-writing-guide.md)
+   - Voice, tone, citation, caveat, and report-writing conventions.
+
+11. [Data Catalog](docs/data-catalog.md)
+   - Current summarized field coverage and source status from the backend perspective.
+
+12. [Evaluation Strategy](docs/evaluation-strategy.md)
+    - How to test factual grounding, section quality, source traceability, and SME
+      acceptance.
+
+13. [Industry Workbench Research](docs/industry-workbench-research.md)
+    - Lessons borrowed from Palantir, Hex, Databricks, Snowflake, Fabric, Sigma, Looker,
+      Dataiku, and Tableau.
+
+## North Star
+
+Civil AI should feel less like asking a chatbot about land records and more like working
+with a senior feasibility analyst who produces inspectable, reusable work product.
