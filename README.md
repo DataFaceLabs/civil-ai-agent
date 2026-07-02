@@ -11,12 +11,13 @@ customer deliverables.
 
 ## Current Status
 
-This repository is currently in design mode. The backend data platform and frontend
-workbench are under active parallel development, and this repo should not assume either
-surface is final.
+**Phase 1 foundation** — design docs plus an initial Strands agent package (`src/civilai_agent/`).
 
-The design docs in this repo are intended to answer four questions before agent code is
-written:
+The backend data platform and frontend workbench are under active parallel development;
+contracts in this repo stay framework-agnostic so runtime wiring can live in
+`civil-ai-platform` (AgentCore) without changing FE shapes.
+
+The design docs answer four questions that guided the first implementation:
 
 1. What problem is the Civil AI Agent solving?
 2. What data, source evidence, and workbench context does the agent need?
@@ -36,9 +37,19 @@ observe -> explain -> investigate -> create artifact -> validate -> act -> save/
 Conversation is a control surface. The system of record is the structured project
 artifact set saved through the workbench.
 
+## Local development
+
+```bash
+make install   # uv sync
+make test      # pytest
+uv run civilai-agent run --request "..." --dry-run --json
+```
+
+See `.env.example` for `CIVILAI_DATA_API_BASE` and Bedrock settings.
+
 ## Repository Boundaries
 
-`civil-ai-be` owns the data platform:
+`civil-ai-data` owns the data platform:
 
 - S3 data lake and medallion architecture
 - Curated parcel, overlay, and reference data
@@ -60,7 +71,10 @@ artifact set saved through the workbench.
 - Artifact schemas
 - Citation, provenance, and inspectability rules
 - Evaluation strategy
-- Future implementation of the agent runtime
+- Strands agent implementation (`civilai_agent` package)
+
+Production **runtime orchestration** (agent-runs API, AgentCore IaC) lives in
+`civil-ai-platform`; see meta-repo `docs/decisions/ADR-0003-strands-agentcore.md`.
 
 ## Documentation Map
 

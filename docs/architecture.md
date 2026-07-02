@@ -75,13 +75,13 @@ Known BE surfaces that matter to the agent:
 | Fetch all facts for an entity | `/v1/entities/{entity_id}/facts` |
 | Inspect provenance | `/v1/entities/{entity_id}/provenance` |
 | Export entity evidence | `/v1/entities/{entity_id}/export` |
-| Create and retrieve projects | `/v1/projects`, `/v1/projects/{id}` |
-| Export project snapshot | `/v1/projects/{id}/export` |
+| Create and retrieve parcel snapshots | `/v1/parcel-snapshots`, `/v1/parcel-snapshots/{id}` |
+| Export parcel snapshot | `/v1/parcel-snapshots/{id}/export` |
 | FE site lookup by address or parcel | `/v1/fe/site/by-address`, `/v1/fe/site/by-parcel` |
 | Catalog/schema discovery | `/v1/catalog/*` |
 | Legacy report workflow | `/report`, `/report/{run_id}`, `/report/{run_id}/domain/{n}` |
 
-The agent should prefer the `/v1` entity/project/facts/provenance APIs for new design.
+The agent should prefer the `/v1` entity/parcel-snapshot/facts/provenance APIs for new design.
 The older `/report` flow can remain a compatibility path until the team retires it.
 
 ## S3 And Medallion Alignment

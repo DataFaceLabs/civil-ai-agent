@@ -32,8 +32,8 @@ access should be reserved for backend jobs, debugging, or explicitly approved to
 | Fetch all facts | `/v1/entities/{entity_id}/facts` | Best for project-wide investigation. |
 | Inspect evidence lineage | `/v1/entities/{entity_id}/provenance` | Needed for claims, citations, and traceability. |
 | Export evidence | `/v1/entities/{entity_id}/export` | Useful for source bundles and QA packets. |
-| Create/retrieve project | `/v1/projects`, `/v1/projects/{id}` | Projects pin snapshot date for reproducibility. |
-| Export project | `/v1/projects/{id}/export` | Useful for report assembly and review. |
+| Create/retrieve parcel snapshot | `/v1/parcel-snapshots`, `/v1/parcel-snapshots/{id}` | Pins serving `snapshot_date` for reproducible exports. |
+| Export parcel snapshot | `/v1/parcel-snapshots/{id}/export` | Useful for report assembly and review at a pinned date. |
 | FE site lookup | `/v1/fe/site/by-address`, `/v1/fe/site/by-parcel` | Current FE-oriented parcel/site bootstrap. |
 | Catalog discovery | `/v1/catalog/*` | Useful for runtime schema awareness. |
 | Legacy report workflow | `/report`, `/report/{run_id}/domain/{n}` | Compatibility path, not preferred new design. |
