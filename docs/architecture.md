@@ -11,8 +11,8 @@ service, tool layer, backend data platform, artifact store, and evaluation syste
 
 ## Design Principles
 
-- `civil-ai-be` remains the source of truth for governed data facts, entity resolution,
-  service views, provenance, project snapshots, and exports.
+- `civil-ai-data` remains the source of truth for governed data facts, entity resolution,
+  service views, provenance, parcel snapshots, and exports.
 - `civil-ai-fe` remains the user-facing workbench for project state, review, editing,
   maps, sections, exhibits, and approvals.
 - `civil-ai-agent` owns reasoning, tool orchestration, artifact creation, explanation,
@@ -50,9 +50,9 @@ service, tool layer, backend data platform, artifact store, and evaluation syste
                │                               │
                ▼                               ▼
 ┌──────────────────────────────┐   ┌─────────────────────────────────┐
-│ civil-ai-be                   │   │ Approved external/source tools   │
+│ civil-ai-data                 │   │ Approved external/source tools   │
 │ entity, facts, provenance,    │   │ code text, public portals, docs, │
-│ project snapshots, exports    │   │ uploaded files, search/retrieval │
+│ parcel snapshots, exports     │   │ uploaded files, search/retrieval │
 └──────────────────────────────┘   └─────────────────────────────────┘
                │
                ▼
