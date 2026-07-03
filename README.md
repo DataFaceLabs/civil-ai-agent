@@ -47,6 +47,23 @@ uv run civilai-agent run --request "..." --dry-run --json
 
 See `.env.example` for `CIVILAI_DATA_API_BASE` and Bedrock settings.
 
+### Dev-only HTTP wrapper
+
+There is no production HTTP server here — the agent is invoked as a library
+(`runner.run_agent()`) from AgentCore/the platform. For local UAT, where nothing yet
+wires the frontend to the agent, `civilai-agent serve` starts a **dev-only**, unauthenticated
+FastAPI wrapper on `127.0.0.1:8010`:
+
+```bash
+uv run civilai-agent serve             # http://127.0.0.1:8010
+uv run civilai-agent serve --reload    # autoreload for development
+```
+
+`POST /v1/agent/run` accepts a `WorkbenchContext` JSON body and returns an
+`AgentResponse`. `GET /healthz` for a liveness check. CORS is scoped to the local Vite
+dev server origin only. **Never deploy this** — every request triggers a real, billed
+Bedrock call with no auth, rate limiting, or tenant isolation.
+
 ## Repository Boundaries
 
 `civil-ai-data` owns the data platform:

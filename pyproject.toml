@@ -22,6 +22,12 @@ dev = [
     "ruff>=0.5",
     "mypy>=1.10",
 ]
+# Dev-only local HTTP wrapper (civilai-agent serve) -- not part of the production
+# agent runtime, which is invoked via runner.run_agent() from AgentCore/the platform.
+serve = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
 
 [project.scripts]
 civilai-agent = "civilai_agent.cli:main"

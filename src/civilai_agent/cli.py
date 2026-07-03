@@ -27,6 +27,13 @@ def main(argv: list[str] | None = None) -> int:
     eval_parser.add_argument("--max-web-searches", type=int, default=5)
     eval_parser.add_argument("--max-tool-calls", type=int, default=30)
 
+    serve_parser = sub.add_parser(
+        "serve", help="Run the dev-only HTTP wrapper (requires the 'serve' extra)"
+    )
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8010)
+    serve_parser.add_argument("--reload", action="store_true")
+
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -55,6 +62,17 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(json.dumps(result.model_dump(), indent=2))
         return 0 if result.passed else 2
+
+    if args.command == "serve":
+        import uvicorn
+
+        uvicorn.run(
+            "civilai_agent.server:app",
+            host=args.host,
+            port=args.port,
+            reload=args.reload,
+        )
+        return 0
 
     return 1
 
