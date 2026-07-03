@@ -22,7 +22,6 @@ _PREFETCH_FIELD_CODES = (
     "TCAD_INFO",
     "IMPERVIOUS_REGS",
     "ZONING_REGS",
-    "ZONING_DISTRICT",
 )
 
 
@@ -61,7 +60,7 @@ def derive_prefetch_queries(
 
     juris = _field_value(field_context, "GOVERNING_JURIS")
     address = _field_value(field_context, "PROPERTY_ADDRESS")
-    zoning = _field_value(field_context, "ZONING_DISTRICT")
+    zoning = _field_value(field_context, "ZONING_REGS")
     impervious = _field_value(field_context, "IMPERVIOUS_REGS")
 
     if impervious and juris:
