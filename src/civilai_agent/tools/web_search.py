@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import httpx
 
-from civilai_agent.guardrails.web_search_models import WebSearchConfig, WebSearchResult
+from civilai_agent.guardrails.web_search_models import WebSearchConfig, WebSearchResult, WebSearchTraceEntry
 from civilai_agent.guardrails.web_search_query import normalize_search_query, simplify_search_query
 
 logger = logging.getLogger(__name__)
@@ -105,6 +105,10 @@ class SearchSession:
         self._seen: set[str] = set()
         self.dedupe_hits = 0
         self.executed_queries = 0
+        self._trace_entries: list[WebSearchTraceEntry] = []
+
+    def get_trace(self) -> tuple[WebSearchTraceEntry, ...]:
+        return tuple(self._trace_entries)
 
     def _normalize_key(self, query: str, entity_id: str | None = None) -> str:
         base = normalize_search_query(query).lower()
@@ -123,6 +127,9 @@ class SearchSession:
         if key in self._seen:
             self.dedupe_hits += 1
             logger.info("web_search dedupe hit: %s", query)
+            self._trace_entries.append(
+                WebSearchTraceEntry(query=query, results=(), dedupe_hit=True)
+            )
             return ()
 
         cache_key = _cache_key(normalize_search_query(query), self.config)
@@ -130,6 +137,9 @@ class SearchSession:
         if cached is not None:
             self._seen.add(key)
             self.dedupe_hits += 1
+            self._trace_entries.append(
+                WebSearchTraceEntry(query=query, results=cached, dedupe_hit=True)
+            )
             return cached
 
         provider = get_web_search_provider()
@@ -146,6 +156,9 @@ class SearchSession:
         self._seen.add(key)
         self.executed_queries += 1
         _search_cache[cache_key] = (time.monotonic(), results)
+        self._trace_entries.append(
+            WebSearchTraceEntry(query=query, results=results, dedupe_hit=False)
+        )
         return results
 
 

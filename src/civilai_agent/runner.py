@@ -11,6 +11,7 @@ from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS
 from civilai_agent.models.context import (
     AgentArtifact,
     AgentResponse,
+    AgentWorkflow,
     Claim,
     TraceSummary,
     WorkbenchContext,
@@ -45,7 +46,14 @@ def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentRespo
     elapsed_ms = int((time.perf_counter() - started) * 1000)
 
     session = get_search_session()
-    display, structured, warnings = finalize_text_output(text=message, guardrails=DEFAULT_GUARDRAILS)
+    use_structured = context.workflow == AgentWorkflow.SECTION_DRAFT
+    web_search_trace = session.get_trace()
+    display, structured, warnings = finalize_text_output(
+        text=message,
+        guardrails=DEFAULT_GUARDRAILS,
+        web_search_trace=web_search_trace if web_search_trace else None,
+        structured_mode=use_structured,
+    )
 
     artifacts: list[AgentArtifact] = []
     if structured is not None:

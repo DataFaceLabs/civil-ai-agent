@@ -4,17 +4,33 @@ from __future__ import annotations
 
 from civilai_agent.models.context import WorkbenchContext
 
+STRUCTURED_DRAFT_INSTRUCTION = """
+Return your final section draft as a single JSON object (no markdown code fence) with this shape:
+{
+  "suggested_language": "ATX-Civil prose for the section",
+  "caveats": ["optional caveat strings"],
+  "verification_steps": ["SME verification steps for partial/unknown fields"],
+  "data_gaps": ["explicit gaps not covered by governed data"],
+  "sources": [{"title": "...", "url": "https://...", "snippet": "..."}]
+}
+Only include "sources" entries for URLs returned by web_search_deduped in this run.
+Populate verification_steps and data_gaps from governed fields with status partial or unknown.
+""".strip()
+
 
 def section_draft_prompt(context: WorkbenchContext) -> str:
     section = context.active_section_id or "the active section"
     entity = context.entity_id or "unknown entity"
-    return (
-        f"Draft feasibility language for section '{section}'.\n"
-        f"Entity: {entity}\n"
-        f"Proposed use: {context.proposed_use or 'not specified'}\n"
-        f"Request: {context.request}\n"
-        "Workflow: fetch site payload, section facts, determinations, and provenance first."
-    )
+    parts = [
+        f"Draft feasibility language for section '{section}'.",
+        f"Entity: {entity}",
+        f"Proposed use: {context.proposed_use or 'not specified'}",
+        f"Request: {context.request}",
+        "Workflow: fetch site payload, section facts, determinations, and provenance first.",
+        "",
+        STRUCTURED_DRAFT_INSTRUCTION,
+    ]
+    return "\n".join(parts)
 
 
 def gap_analysis_prompt(context: WorkbenchContext) -> str:
