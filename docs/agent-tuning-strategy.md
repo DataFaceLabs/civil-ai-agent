@@ -185,15 +185,45 @@ change unlocks **both** the product (artifacts, claim→source pinning) **and** 
 change in the entire program. Do it first after Phase 0.*
 
 **Phase 2 — Build the eval harness (1–2 weeks).** Per Fable design 03: golden cases as
-structured artifacts, three tiers (rule/judge/determination). Start with the **two richest
-cases** — 509 Cresthill (the corpus's only infeasible; tests infeasibility detection) and
-2121 Howard Ln (the coverage≠capacity trap) — build the four rule checks (placeholders,
-overclaims, citations, posture), wire pytest Tier R. *This is what turns "tuning" from
-vibes into measurement.* (See §5.)
+structured artifacts, three tiers (rule/judge/determination). Start with **509 Cresthill**
+(the corpus's only infeasible; tests infeasibility detection) — build the four rule checks
+(placeholders, overclaims, citations, posture), wire pytest Tier R. **2121 Howard Ln is
+parked**, not a starting case: confirmed a 3-parcel assemblage (`civil-ai` ADR-0004) — the
+single sub-parcel the platform can resolve today gives a factually wrong `ossf_required`
+against the real combined-site study, so it can't yet serve as the coverage≠capacity golden
+case without either the assemblage gap addressed or a different single-parcel case standing
+in. *Building this suite is what turns "tuning" from vibes into measurement.* (See §5.)
 
-**Phase 3 — Make guardrails real (days).** Make the disclaimer *conditional on utility
-content* so `enforce=True` is flippable (F3); fix `dedupe_hit` (F6); fix the trace (F5);
-thread session state per-run instead of globals (F8). Now the guardrails can actually gate.
+**Phase 2.5 — Port the validated playbook in, before any model A/B (days–1 week).**
+`feasibility-playbook/` (89% PARTIAL-or-better across 120 blind-scored holdout cells — a
+fourth Fable 5 pass, same rigor as the audit/design/bughunt) has **zero footprint in
+production** — confirmed via code search, zero references anywhere in `civilai_agent/src/`.
+Two separable halves, in this order:
+1. **Deterministic corrections into `civil-ai-data`'s determination YAMLs.** The playbook's
+   own "Amendments required" list is already validated and ready to build: the OSSF
+   lot-size gate (<1.0 ac infeasible / 1.0–1.5 ac advanced treatment / ≥1.5 ac conventional,
+   with an "existing OSSF retained" exception — today's `wastewater_service` rule only gates
+   on the `ossf_required` boolean, no lot-size logic at all), the §212.004 plat-exemption
+   gate correction, floodplain-study dispatch keyed on proposed work-scope (not FEMA zone),
+   and the TIA-trigger over-firing fix in CoA. Zero model-dependency, lowest risk, ready now.
+2. **Jurisdiction-keyed drafting guidance into the structured-draft prompt** — boilerplate
+   stems and branch-selection logic per section. Sequenced *after* the YAML corrections so
+   the model drafts against corrected determinations, not stale ones.
+
+Do the Haiku/Sonnet/Nova/Kimi model comparison only *after* this lands, not before —
+comparing models on a task that doesn't yet have the domain's validated patterns loaded
+tests the wrong thing. (All four confirmed live on Bedrock via direct catalog query, zero
+new provider code needed; true GPT-4.x/5.x is not on Bedrock — only OpenAI's open-weight
+`gpt-oss` family is — and would need a new provider adapter.)
+
+**Phase 3 — Make guardrails real (days).** ~~Make the disclaimer *conditional on utility
+content* so `enforce=True` is flippable (F3)~~ **done** — disclaimer now scoped to
+`disclaimer_sections` (utilities today), and the `will-serve` forbidden-phrase check is
+sentence-level context-aware instead of a blind substring match (was flagging safe usage
+like "obtain a will-serve letter" identically to a real overclaim). Live-verified via the
+eval harness: a soils draft went from 1 false-positive warning to 0.
+Remaining: fix `dedupe_hit` (F6); fix the trace (F5); thread session state per-run instead
+of globals (F8, also blocks safe bake-off parallelism — see `SMOKETEST-TRACKER.md`).
 
 **Phase 4 — Memory (1–2 weeks).** Per Fable design 04: S3 session manager for short-term
 ("make it shorter" works), then `DraftRevision` + `AnalystCorrection` in the platform
