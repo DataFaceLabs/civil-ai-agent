@@ -53,6 +53,7 @@ def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentRespo
         guardrails=DEFAULT_GUARDRAILS,
         web_search_trace=web_search_trace if web_search_trace else None,
         structured_mode=use_structured,
+        section_id=context.active_section_id,
     )
 
     artifacts: list[AgentArtifact] = []
