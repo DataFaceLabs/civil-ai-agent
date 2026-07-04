@@ -31,6 +31,7 @@ def finalize_text_output(
     guardrails: GuardrailConfig | None = None,
     web_search_trace: tuple[WebSearchTraceEntry, ...] | None = None,
     structured_mode: bool = False,
+    section_id: str | None = None,
 ) -> tuple[str, SectionDraftOutput | None, tuple[str, ...]]:
     cfg = guardrails or DEFAULT_GUARDRAILS
     structured: SectionDraftOutput | None = None
@@ -44,10 +45,10 @@ def finalize_text_output(
             return text, None, warnings
         if web_search_trace:
             structured = _filter_structured_sources(structured, web_search_trace)
-        warnings = evaluate_structured_guardrails(structured, cfg)
+        warnings = evaluate_structured_guardrails(structured, cfg, section_id=section_id)
         display = structured.suggested_language
     else:
-        warnings = evaluate_guardrails(text, cfg)
+        warnings = evaluate_guardrails(text, cfg, section_id=section_id)
         display = text
 
     if cfg.enforce and warnings:
