@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -21,16 +20,41 @@ class SectionDraftOutput(BaseModel):
     sources: tuple[WebSearchResult, ...] = Field(default=())
 
 
-def parse_structured_response(text: str) -> tuple[SectionDraftOutput | None, tuple[str, ...]]:
+_FENCED_BLOCK = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
+
+
+def _candidate_json_strings(text: str) -> list[str]:
+    """Every plausible JSON substring in `text`, most-likely-correct first.
+
+    The prompt asks for a bare JSON object with no fence, but models (Haiku 4.5
+    observed live) sometimes prepend a conversational sentence and/or wrap the
+    object in a ```json fence anyway. Rather than trust the model to follow the
+    "no fence, no preamble" instruction exactly, extract defensively: a fenced
+    block anywhere in the text, then the whole trimmed text, then the substring
+    from the first '{' to the last '}' (catches an unfenced object with prose
+    before or after it).
+    """
     cleaned = text.strip()
-    fence = re.match(r"^```(?:json)?\s*(.*?)```\s*$", cleaned, re.DOTALL | re.IGNORECASE)
-    if fence:
-        cleaned = fence.group(1).strip()
-    try:
-        payload = json.loads(cleaned)
-    except json.JSONDecodeError as exc:
-        return None, (f"JSON parse error: {exc}",)
-    try:
-        return SectionDraftOutput.model_validate(payload), ()
-    except ValidationError as exc:
-        return None, tuple(str(err) for err in exc.errors())
+    candidates: list[str] = []
+    candidates.extend(m.group(1).strip() for m in _FENCED_BLOCK.finditer(cleaned))
+    candidates.append(cleaned)
+    first, last = cleaned.find("{"), cleaned.rfind("}")
+    if first != -1 and last > first:
+        candidates.append(cleaned[first : last + 1])
+    return candidates
+
+
+def parse_structured_response(text: str) -> tuple[SectionDraftOutput | None, tuple[str, ...]]:
+    errors: list[str] = []
+    for candidate in _candidate_json_strings(text):
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError as exc:
+            errors.append(f"JSON parse error: {exc}")
+            continue
+        try:
+            return SectionDraftOutput.model_validate(payload), ()
+        except ValidationError as exc:
+            errors.extend(str(err) for err in exc.errors())
+            continue
+    return None, tuple(errors)
