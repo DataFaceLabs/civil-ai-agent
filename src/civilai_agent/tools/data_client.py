@@ -29,7 +29,7 @@ class DataApiClient:
         base_url: str | None = None,
         service_key: str | None = None,
         data_scopes: tuple[str, ...] = (),
-        timeout: float = 30.0,
+        timeout: float | None = None,
     ) -> None:
         proxy = os.getenv("CIVILAI_PLATFORM_DATA_PROXY", "").strip()
         self.base_url = (
@@ -37,7 +37,10 @@ class DataApiClient:
         ).rstrip("/")
         self.service_key = service_key or os.getenv("CIVILAI_DATA_SERVICE_KEY", "").strip()
         self.data_scopes = data_scopes
-        self.timeout = timeout
+        # Determinations over Athena can run long; allow an env override for slow backends.
+        self.timeout = (
+            timeout if timeout is not None else float(os.getenv("CIVILAI_DATA_API_TIMEOUT", "30"))
+        )
 
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
