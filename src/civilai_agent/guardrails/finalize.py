@@ -38,7 +38,10 @@ def finalize_text_output(
         structured, parse_errors = parse_structured_response(text)
         if structured is None:
             detail = "; ".join(parse_errors) or "Structured response could not be parsed."
-            raise RuntimeError(f"Structured agent response failed validation: {detail}")
+            warnings = (f"Structured response could not be parsed: {detail}",)
+            if cfg.enforce:
+                raise RuntimeError(f"Structured agent response failed validation: {detail}")
+            return text, None, warnings
         if web_search_trace:
             structured = _filter_structured_sources(structured, web_search_trace)
         warnings = evaluate_structured_guardrails(structured, cfg)

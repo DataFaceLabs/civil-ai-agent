@@ -14,6 +14,27 @@ def test_structured_guardrail_warns_on_forbidden_phrase() -> None:
     assert any("will-serve" in w for w in warnings)
 
 
+def test_structured_parse_failure_warns_when_not_enforcing() -> None:
+    _, structured, warnings = finalize_text_output(
+        text="not json",
+        guardrails=GuardrailConfig(enforce=False),
+        structured_mode=True,
+    )
+    assert structured is None
+    assert any("could not be parsed" in w.lower() for w in warnings)
+
+
+def test_structured_parse_failure_raises_when_enforcing() -> None:
+    import pytest
+
+    with pytest.raises(RuntimeError, match="Structured agent response failed validation"):
+        finalize_text_output(
+            text="not json",
+            guardrails=GuardrailConfig(enforce=True),
+            structured_mode=True,
+        )
+
+
 def json_payload_with_will_serve() -> str:
     return """
     {
