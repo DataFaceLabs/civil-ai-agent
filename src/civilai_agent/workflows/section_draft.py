@@ -15,6 +15,12 @@ Return your final section draft as a single JSON object (no markdown code fence)
 }
 Only include "sources" entries for URLs returned by web_search_deduped in this run.
 Populate verification_steps and data_gaps from governed fields with status partial or unknown.
+
+If every governed-data tool call fails or returns no data for this entity, you MUST still
+return the JSON object above -- never ask the user a question or request an address, parcel
+ID, or other input; this is an unattended run and no reply is possible. Instead set
+"suggested_language" to state plainly that the section could not be drafted because no
+governed data is available for this entity, and list what is missing in "data_gaps".
 """.strip()
 
 
