@@ -195,6 +195,8 @@ case without either the assemblage gap addressed or a different single-parcel ca
 in. *Building this suite is what turns "tuning" from vibes into measurement.* (See §5.)
 
 **Phase 2.5 — Port the validated playbook in, before any model A/B (days–1 week).**
+*Execution detail: `docs/playbook-integration-plan.md` — the sequenced, one-rule-per-PR
+backlog with per-rule acceptance cases and the deterministic-before-prose ordering.*
 `feasibility-playbook/` (89% PARTIAL-or-better across 120 blind-scored holdout cells — a
 fourth Fable 5 pass, same rigor as the audit/design/bughunt) has **zero footprint in
 production** — confirmed via code search, zero references anywhere in `civilai_agent/src/`.
