@@ -33,16 +33,17 @@ def _extract_message(result: Any) -> str:
     return str(result)
 
 
-def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
-    """Run the Civil Analyst agent and return a framework-agnostic response."""
-    if (
-        _use_draft_pipeline()
-        and context.workflow == AgentWorkflow.SECTION_DRAFT
-    ):
-        from civilai_agent.pipeline.run import run_section_draft
+def _agent_model_id(agent: Any) -> str | None:
+    model = getattr(agent, "model", None)
+    config = getattr(model, "config", None)
+    if isinstance(config, dict):
+        val = config.get("model_id")
+        return val if isinstance(val, str) else None
+    return None
 
-        return run_section_draft(context, dry_run=dry_run)
 
+def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
+    """Legacy Strands tool-loop path (no pipeline routing)."""
     reset_search_session()
     user_prompt = build_user_prompt(context)
     started = time.perf_counter()
@@ -95,7 +96,7 @@ def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentRespo
             "run_determinations",
             "web_search_deduped",
         ),
-        model_id=agent.model.config.get("model_id") if hasattr(agent, "model") else None,
+        model_id=_agent_model_id(agent),
         latency_ms=elapsed_ms,
         web_search_queries=session.executed_queries,
         dedupe_hits=session.dedupe_hits,
@@ -110,3 +111,13 @@ def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentRespo
         structured_draft=structured_dict,
         guardrail_warnings=warnings,
     )
+
+
+def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
+    """Run the Civil Analyst agent and return a framework-agnostic response."""
+    if _use_draft_pipeline() and context.workflow == AgentWorkflow.SECTION_DRAFT:
+        from civilai_agent.pipeline.run import run_section_draft
+
+        return run_section_draft(context, dry_run=dry_run)
+
+    return run_legacy_agent(context, dry_run=dry_run)
