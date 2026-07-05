@@ -14,10 +14,10 @@ def default_bedrock_model_id() -> str:
     ).strip()
 
 
-def build_bedrock_model(*, temperature: float = 0.2) -> BedrockModel:
+def build_bedrock_model(*, temperature: float = 0.2, model_id: str | None = None) -> BedrockModel:
     region = os.getenv("AWS_DEFAULT_REGION", "us-east-1").strip()
     return BedrockModel(
-        model_id=default_bedrock_model_id(),
+        model_id=model_id or default_bedrock_model_id(),
         region_name=region,
         temperature=temperature,
     )

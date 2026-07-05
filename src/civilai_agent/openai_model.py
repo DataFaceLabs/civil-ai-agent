@@ -24,14 +24,14 @@ def openai_model_params(*, model_id: str, temperature: float) -> dict[str, float
     return {"temperature": temperature}
 
 
-def build_openai_model(*, temperature: float = 0.2) -> OpenAIModel:
+def build_openai_model(*, temperature: float = 0.2, model_id: str | None = None) -> OpenAIModel:
     # api_key falls through to the openai SDK's own OPENAI_API_KEY env lookup when
     # omitted; only pass it explicitly when set so client_args stays empty otherwise.
-    model_id = default_openai_model_id()
+    resolved_id = model_id or default_openai_model_id()
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     client_args = {"api_key": api_key} if api_key else {}
     return OpenAIModel(
         client_args=client_args,
-        model_id=model_id,
-        params=openai_model_params(model_id=model_id, temperature=temperature),
+        model_id=resolved_id,
+        params=openai_model_params(model_id=resolved_id, temperature=temperature),
     )

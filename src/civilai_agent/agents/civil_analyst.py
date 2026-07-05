@@ -32,16 +32,16 @@ Rules:
 """.strip()
 
 
-def _build_model(*, temperature: float) -> Model:
+def build_model(*, temperature: float = 0.2, model_id: str | None = None) -> Model:
     provider = os.getenv("CIVILAI_MODEL_PROVIDER", "bedrock").strip().lower()
     if provider == "openai":
-        return build_openai_model(temperature=temperature)
-    return build_bedrock_model(temperature=temperature)
+        return build_openai_model(temperature=temperature, model_id=model_id)
+    return build_bedrock_model(temperature=temperature, model_id=model_id)
 
 
 def build_civil_analyst_agent(*, temperature: float = 0.2) -> Agent:
     return Agent(
-        model=_build_model(temperature=temperature),
+        model=build_model(temperature=temperature),
         system_prompt=CIVIL_ANALYST_SYSTEM_PROMPT,
         tools=[
             resolve_parcel,
