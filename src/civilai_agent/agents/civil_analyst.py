@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
+
 from strands import Agent
+from strands.models.model import Model
 
 from civilai_agent.bedrock import build_bedrock_model
+from civilai_agent.openai_model import build_openai_model
 from civilai_agent.tools.facts import (
     get_provenance,
     get_section_facts,
@@ -28,9 +32,16 @@ Rules:
 """.strip()
 
 
+def _build_model(*, temperature: float) -> Model:
+    provider = os.getenv("CIVILAI_MODEL_PROVIDER", "bedrock").strip().lower()
+    if provider == "openai":
+        return build_openai_model(temperature=temperature)
+    return build_bedrock_model(temperature=temperature)
+
+
 def build_civil_analyst_agent(*, temperature: float = 0.2) -> Agent:
     return Agent(
-        model=build_bedrock_model(temperature=temperature),
+        model=_build_model(temperature=temperature),
         system_prompt=CIVIL_ANALYST_SYSTEM_PROMPT,
         tools=[
             resolve_parcel,
