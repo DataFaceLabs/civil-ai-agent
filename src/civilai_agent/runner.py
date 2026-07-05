@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any
 
@@ -20,6 +21,10 @@ from civilai_agent.tools.web_search_tool import get_search_session, reset_search
 from civilai_agent.workflows.section_draft import build_user_prompt
 
 
+def _use_draft_pipeline() -> bool:
+    return os.getenv("CIVILAI_DRAFT_PIPELINE", "").strip() == "1"
+
+
 def _extract_message(result: Any) -> str:
     if isinstance(result, str):
         return result
@@ -30,6 +35,14 @@ def _extract_message(result: Any) -> str:
 
 def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
     """Run the Civil Analyst agent and return a framework-agnostic response."""
+    if (
+        _use_draft_pipeline()
+        and context.workflow == AgentWorkflow.SECTION_DRAFT
+    ):
+        from civilai_agent.pipeline.run import run_section_draft
+
+        return run_section_draft(context, dry_run=dry_run)
+
     reset_search_session()
     user_prompt = build_user_prompt(context)
     started = time.perf_counter()
