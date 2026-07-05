@@ -5,6 +5,8 @@ from __future__ import annotations
 from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS, evaluate_structured_guardrails
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.models.context import AgentResponse
+from civilai_agent.pipeline.specs import DraftSpec
+from civilai_agent.pipeline.validate import fact_echo_warnings
 
 
 def inject_utilities_disclaimer(response: AgentResponse) -> AgentResponse:
@@ -48,6 +50,19 @@ def inject_utilities_disclaimer(response: AgentResponse) -> AgentResponse:
             "guardrail_warnings": warnings,
             "artifacts": new_artifacts,
         }
+    )
+
+
+def append_fact_echo_warnings(response: AgentResponse, spec: DraftSpec) -> AgentResponse:
+    """Merge fact-echo validator warnings into guardrail_warnings when structured draft exists."""
+    if response.structured_draft is None:
+        return response
+    output = SectionDraftOutput.model_validate(response.structured_draft)
+    extra = fact_echo_warnings(spec, output)
+    if not extra:
+        return response
+    return response.model_copy(
+        update={"guardrail_warnings": (*response.guardrail_warnings, *extra)}
     )
 
 

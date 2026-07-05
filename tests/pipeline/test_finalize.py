@@ -5,7 +5,11 @@ from __future__ import annotations
 from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.models.context import AgentArtifact, AgentResponse, Claim
-from civilai_agent.pipeline.finalize import finalize_pipeline_response, inject_utilities_disclaimer
+from civilai_agent.pipeline.finalize import (
+    append_fact_echo_warnings,
+    finalize_pipeline_response,
+    inject_utilities_disclaimer,
+)
 
 
 def _utilities_response(*, with_disclaimer: bool) -> AgentResponse:
@@ -48,6 +52,37 @@ def test_inject_utilities_disclaimer_noop_when_present() -> None:
     response = _utilities_response(with_disclaimer=True)
     updated = inject_utilities_disclaimer(response)
     assert updated == response
+
+
+def test_append_fact_echo_warnings_merges_into_response() -> None:
+    from civilai_agent.pipeline.specs import DraftSpec
+
+    structured = SectionDraftOutput(
+        suggested_language="This property is not subject to zoning regulations."
+    )
+    artifact = AgentArtifact(
+        type="draft_section",
+        title="Draft — zoning",
+        status="partial",
+        section_id="zoning",
+        claims=(Claim(text=structured.suggested_language),),
+        body=structured.suggested_language,
+    )
+    response = AgentResponse(
+        message=structured.suggested_language,
+        artifacts=(artifact,),
+        structured_draft=structured.model_dump(),
+    )
+    spec = DraftSpec(
+        entity_id="ent-1",
+        section_id="zoning",
+        branch_id="zoning.zoned_city",
+        tier=2,
+        slots={"zoning_code": "DR"},
+    )
+    updated = append_fact_echo_warnings(response, spec)
+    assert len(updated.guardrail_warnings) == 1
+    assert "zoning_code" in updated.guardrail_warnings[0]
 
 
 def test_finalize_pipeline_response_non_utilities_unchanged() -> None:
