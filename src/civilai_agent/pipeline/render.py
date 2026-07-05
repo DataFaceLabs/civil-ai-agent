@@ -78,16 +78,28 @@ def build_renderer_agent(*, model_id: str | None = None, temperature: float = 0.
 
 
 def render_draft(spec: DraftSpec, *, model_id: str | None = None) -> SectionDraftOutput:
-    """One LLM call: inject spec context, parse structured JSON draft."""
+    """Render the spec with one LLM call; retry once on structured-parse failure.
+
+    The retry re-sends the same prompt with the parse error appended so the model
+    can correct its JSON. A second failure raises — never loop unbounded.
+    """
     agent = build_renderer_agent(model_id=model_id)
-    raw = agent(build_render_prompt(spec))
-    text = _message_from_result(raw)
-    _, structured, warnings = finalize_text_output(
-        text=text,
-        structured_mode=True,
-        section_id=spec.section_id,
-    )
-    if structured is None:
+    prompt = build_render_prompt(spec)
+    detail = ""
+    for attempt in range(2):
+        raw = agent(prompt)
+        text = _message_from_result(raw)
+        _, structured, warnings = finalize_text_output(
+            text=text,
+            structured_mode=True,
+            section_id=spec.section_id,
+        )
+        if structured is not None:
+            return structured
         detail = "; ".join(warnings) or "structured response could not be parsed"
-        raise RuntimeError(f"Renderer failed to produce structured output: {detail}")
-    return structured
+        if attempt == 0:
+            prompt = (
+                f"{prompt}\n\nYour previous response failed structured validation "
+                f"({detail}). Respond again with ONLY the JSON object, no prose."
+            )
+    raise RuntimeError(f"Renderer failed to produce structured output: {detail}")

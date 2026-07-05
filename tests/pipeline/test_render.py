@@ -76,10 +76,26 @@ def test_render_draft_parses_canned_response(mock_build: MagicMock) -> None:
 
 
 @patch("civilai_agent.pipeline.render.build_renderer_agent")
-def test_render_draft_raises_on_parse_failure(mock_build: MagicMock) -> None:
+def test_render_draft_retries_once_then_raises(mock_build: MagicMock) -> None:
     agent = MagicMock()
     agent.return_value = "Plain prose without JSON."
     mock_build.return_value = agent
 
     with pytest.raises(RuntimeError, match="Renderer failed to produce structured output"):
         render_draft(_sample_spec())
+
+    assert agent.call_count == 2
+    retry_prompt = agent.call_args[0][0]
+    assert "failed structured validation" in retry_prompt
+
+
+@patch("civilai_agent.pipeline.render.build_renderer_agent")
+def test_render_draft_recovers_on_retry(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.side_effect = ["Plain prose without JSON.", _structured_json()]
+    mock_build.return_value = agent
+
+    output = render_draft(_sample_spec())
+
+    assert agent.call_count == 2
+    assert "DR" in output.suggested_language

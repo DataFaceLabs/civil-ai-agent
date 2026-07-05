@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AgentWorkflow(StrEnum):
+    """Named workflows the workbench can request from the agent."""
+
     MINIMAL_QA = "minimal_qa"
     SECTION_DRAFT = "section_draft"
     GAP_ANALYSIS = "gap_analysis"
@@ -49,6 +51,8 @@ ArtifactType = Literal[
 
 
 class Claim(BaseModel):
+    """A single assertion in an artifact, optionally tied to source refs."""
+
     model_config = ConfigDict(extra="forbid")
 
     text: str
@@ -56,6 +60,8 @@ class Claim(BaseModel):
 
 
 class RecommendedAction(BaseModel):
+    """A follow-up the agent suggests; approval-gated by default."""
+
     model_config = ConfigDict(extra="forbid")
 
     label: str
@@ -63,6 +69,8 @@ class RecommendedAction(BaseModel):
 
 
 class AgentArtifact(BaseModel):
+    """A typed output unit (draft, finding, gap...) surfaced to the workbench."""
+
     model_config = ConfigDict(extra="forbid")
 
     type: ArtifactType
@@ -77,6 +85,8 @@ class AgentArtifact(BaseModel):
 
 
 class TraceSummary(BaseModel):
+    """Run telemetry: tools used, model, latency, and token counts."""
+
     model_config = ConfigDict(extra="forbid")
 
     tools_used: tuple[str, ...] = ()

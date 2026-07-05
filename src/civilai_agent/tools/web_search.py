@@ -5,14 +5,18 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import time
 from typing import Literal, Protocol
 from urllib.parse import urlparse
 
 import httpx
 
-from civilai_agent.guardrails.web_search_models import WebSearchConfig, WebSearchResult, WebSearchTraceEntry
+from civilai_agent.config import settings
+from civilai_agent.guardrails.web_search_models import (
+    WebSearchConfig,
+    WebSearchResult,
+    WebSearchTraceEntry,
+)
 from civilai_agent.guardrails.web_search_query import normalize_search_query, simplify_search_query
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,8 @@ WebSearchProviderName = Literal["tavily", "serper", "brave"]
 
 
 class WebSearchProvider(Protocol):
+    """Interface a search backend must satisfy (Tavily today; others pluggable)."""
+
     def search(
         self,
         query: str,
@@ -34,6 +40,8 @@ class WebSearchProvider(Protocol):
 
 
 class TavilyWebSearchProvider:
+    """Tavily-backed implementation of :class:`WebSearchProvider`."""
+
     def search(
         self,
         query: str,
@@ -41,7 +49,7 @@ class TavilyWebSearchProvider:
         *,
         restrict_domains: bool = False,
     ) -> tuple[WebSearchResult, ...]:
-        api_key = os.getenv("CIVILAI_TAVILY_API_KEY", "").strip()
+        api_key = settings().tavily_api_key.strip()
         if not api_key:
             raise RuntimeError("CIVILAI_TAVILY_API_KEY is not set.")
         payload: dict[str, object] = {
@@ -52,7 +60,7 @@ class TavilyWebSearchProvider:
         }
         if restrict_domains and config.allowed_domains:
             payload["include_domains"] = list(config.allowed_domains)
-        timeout = float(os.getenv("CIVILAI_WEB_SEARCH_TIMEOUT_SEC", "15"))
+        timeout = settings().web_search_timeout_sec
         with httpx.Client(timeout=timeout) as client:
             resp = client.post("https://api.tavily.com/search", json=payload)
             resp.raise_for_status()
@@ -75,7 +83,8 @@ class TavilyWebSearchProvider:
 
 
 def get_web_search_provider() -> WebSearchProvider:
-    name = os.getenv("CIVILAI_WEB_SEARCH_PROVIDER", "tavily").strip().lower()
+    """Instantiate the configured provider (only Tavily is implemented)."""
+    name = settings().web_search_provider.strip().lower()
     if name != "tavily":
         raise RuntimeError(f"Unsupported web search provider: {name}")
     return TavilyWebSearchProvider()
@@ -151,7 +160,9 @@ class SearchSession:
         if not results:
             simplified = simplify_search_query(query)
             if simplified != normalize_search_query(query):
-                results = provider.search(simplified, self.config, restrict_domains=restrict_domains)
+                results = provider.search(
+                    simplified, self.config, restrict_domains=restrict_domains
+                )
 
         self._seen.add(key)
         self.executed_queries += 1

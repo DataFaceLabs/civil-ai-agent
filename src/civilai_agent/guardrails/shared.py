@@ -27,6 +27,8 @@ _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 
 class GuardrailConfig:
+    """Forbidden phrases + required disclaimers evaluated on agent output."""
+
     def __init__(
         self,
         *,

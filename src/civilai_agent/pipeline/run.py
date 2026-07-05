@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import time
 
+from civilai_agent.config import PIPELINE_DATA_API_TIMEOUT_DEFAULT, settings
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.models.context import (
     AgentArtifact,
@@ -23,7 +23,9 @@ from civilai_agent.tools.data_client import DataApiClient
 
 
 def _data_client() -> DataApiClient:
-    timeout = float(os.getenv("CIVILAI_DATA_API_TIMEOUT", "180"))
+    timeout = settings().data_api_timeout
+    if timeout is None:
+        timeout = PIPELINE_DATA_API_TIMEOUT_DEFAULT
     return DataApiClient(timeout=timeout)
 
 
@@ -160,10 +162,6 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
         new_meta = dict(artifact.metadata)
         new_meta["pipeline_path"] = "legacy"
         response = response.model_copy(
-            update={
-                "artifacts": (
-                    artifact.model_copy(update={"metadata": new_meta}),
-                )
-            }
+            update={"artifacts": (artifact.model_copy(update={"metadata": new_meta}),)}
         )
     return finalize_pipeline_response(response)

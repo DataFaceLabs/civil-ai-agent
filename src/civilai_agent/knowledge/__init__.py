@@ -1,7 +1,8 @@
-"""Agent knowledge layer: registry, models, retrieval policy, and ingestion contracts
-for the unstructured/semi-structured sources the Civil Analyst agent may cite.
+"""Agent knowledge layer for unstructured/semi-structured sources.
 
-See ``docs/agent-knowledge-sources.md`` for the design and rules of use.
+Registry, models, retrieval policy, and ingestion contracts for the sources the
+Civil Analyst agent may cite. See ``docs/agent-knowledge-sources.md`` for the
+design and rules of use.
 """
 
 from __future__ import annotations

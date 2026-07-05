@@ -26,9 +26,7 @@ def inject_utilities_disclaimer(response: AgentResponse) -> AgentResponse:
         return response
 
     updated = structured.model_copy(update={"caveats": (*structured.caveats, disclaimer)})
-    warnings = evaluate_structured_guardrails(
-        updated, DEFAULT_GUARDRAILS, section_id="utilities"
-    )
+    warnings = evaluate_structured_guardrails(updated, DEFAULT_GUARDRAILS, section_id="utilities")
     artifact = response.artifacts[0] if response.artifacts else None
     new_artifacts = response.artifacts
     if artifact is not None:

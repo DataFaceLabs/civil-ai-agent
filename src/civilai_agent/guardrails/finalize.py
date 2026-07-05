@@ -35,6 +35,7 @@ def finalize_text_output(
 ) -> tuple[str, SectionDraftOutput | None, tuple[str, ...]]:
     cfg = guardrails or DEFAULT_GUARDRAILS
     structured: SectionDraftOutput | None = None
+    warnings: tuple[str, ...]
     if structured_mode:
         structured, parse_errors = parse_structured_response(text)
         if structured is None:

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import os
-
 from strands import Agent
 from strands.models.model import Model
 
 from civilai_agent.bedrock import build_bedrock_model
+from civilai_agent.config import settings
 from civilai_agent.openai_model import build_openai_model
 from civilai_agent.tools.facts import (
     get_provenance,
@@ -33,7 +32,8 @@ Rules:
 
 
 def build_model(*, temperature: float = 0.2, model_id: str | None = None) -> Model:
-    provider = os.getenv("CIVILAI_MODEL_PROVIDER", "bedrock").strip().lower()
+    """Build the configured provider's Strands model (Bedrock default)."""
+    provider = settings().model_provider.strip().lower()
     if provider == "openai":
         return build_openai_model(temperature=temperature, model_id=model_id)
     return build_bedrock_model(temperature=temperature, model_id=model_id)

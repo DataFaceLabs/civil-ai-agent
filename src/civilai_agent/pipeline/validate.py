@@ -111,8 +111,7 @@ def _zoning_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
         return None
     if any(phrase in text for phrase in NO_ZONING_PHRASES):
         return (
-            f"Draft denies zoning applicability while spec.slots['zoning_code'] "
-            f"is {zoning_code!r}."
+            f"Draft denies zoning applicability while spec.slots['zoning_code'] is {zoning_code!r}."
         )
     return None
 

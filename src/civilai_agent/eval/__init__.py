@@ -1,8 +1,8 @@
 """Eval package."""
 
 from civilai_agent.eval.trace_loader import (
-    TraceEvalResult,
     RunTraceExport,
+    TraceEvalResult,
     evaluate_trace,
     evaluate_trace_file,
     load_trace_jsonl,
@@ -10,8 +10,8 @@ from civilai_agent.eval.trace_loader import (
 )
 
 __all__ = [
-    "TraceEvalResult",
     "RunTraceExport",
+    "TraceEvalResult",
     "evaluate_trace",
     "evaluate_trace_file",
     "load_trace_jsonl",

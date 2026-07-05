@@ -10,6 +10,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TraceRecord(BaseModel):
+    """One event line from a platform trace export (tool call, search, etc.)."""
+
     model_config = ConfigDict(extra="allow")
 
     event: str = ""
@@ -34,6 +36,8 @@ class RunTraceExport(BaseModel):
 
 
 class TraceEvalResult(BaseModel):
+    """Pass/fail verdict for a trace against the plumbing invariants."""
+
     model_config = ConfigDict(extra="forbid")
 
     run_id: str
@@ -80,9 +84,7 @@ def evaluate_trace(
             f"web_search_count {export.web_search_count} exceeds max {max_web_searches}"
         )
     if export.tool_call_count > max_tool_calls:
-        violations.append(
-            f"tool_call_count {export.tool_call_count} exceeds max {max_tool_calls}"
-        )
+        violations.append(f"tool_call_count {export.tool_call_count} exceeds max {max_tool_calls}")
     return TraceEvalResult(
         run_id=export.run_id,
         passed=not violations,

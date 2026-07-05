@@ -15,9 +15,7 @@ STEM_B_COUNTY = (
     "This property is located within the {county} County jurisdiction and is not subject "
     "to zoning regulations."
 )
-STEM_C_ETJ = (
-    "The property is within the ETJ of {city} and therefore has no zoning district."
-)
+STEM_C_ETJ = "The property is within the ETJ of {city} and therefore has no zoning district."
 
 _PROPOSED_USE_GAP = MissingInput(
     name="proposed_use",
@@ -156,9 +154,7 @@ def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any
 def _relevant_determinations(ctx: SectionContext) -> list[dict[str, Any]]:
     zoning_ids = {"zoning_district", "permitting_authority"}
     return [
-        item
-        for item in _determination_items(ctx)
-        if item.get("determination_id") in zoning_ids
+        item for item in _determination_items(ctx) if item.get("determination_id") in zoning_ids
     ]
 
 
