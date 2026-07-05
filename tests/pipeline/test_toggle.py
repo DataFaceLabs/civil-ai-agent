@@ -20,7 +20,7 @@ def section_draft_context() -> WorkbenchContext:
     )
 
 
-def test_pipeline_toggle_falls_back_to_legacy_dry_run_when_facts_present(
+def test_pipeline_toggle_zoning_uses_render_dry_run_when_facts_present(
     monkeypatch: pytest.MonkeyPatch, section_draft_context: WorkbenchContext
 ) -> None:
     monkeypatch.setenv("CIVILAI_DRAFT_PIPELINE", "1")
@@ -29,12 +29,24 @@ def test_pipeline_toggle_falls_back_to_legacy_dry_run_when_facts_present(
         return SectionContext(
             entity_id=entity_id,
             section_id=section_id,
-            facts={"facts": {"zoning_code": "CS"}},
+            facts={"facts": {"zoning_code": "CS", "allowed_use_flags": "[]"}},
+            determinations={
+                "determinations": [
+                    {
+                        "determination_id": "zoning_district",
+                        "inputs_used": {
+                            "jurisdiction.jurisdiction_primary": "City of Austin",
+                            "jurisdiction.in_city_limits": True,
+                        },
+                    }
+                ]
+            },
         )
 
     monkeypatch.setattr("civilai_agent.pipeline.run.fetch_section_context", fake_fetch)
     response = run_agent(section_draft_context, dry_run=True)
-    assert "Would invoke agent with prompt" in response.message
+    assert "[pipeline dry-run] would render zoning" in response.message
+    assert "Would invoke agent" not in response.message
 
 
 def test_pipeline_toggle_zero_fact_gate_without_llm(
