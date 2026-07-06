@@ -55,7 +55,7 @@ def fetch_section_context(
     except DataApiError as exc:
         ctx.errors.append(f"get_provenance: {exc}")
 
-    if section_id in ("zoning", "environmental", "flood"):
+    if section_id in ("environmental", "flood"):
         try:
             ctx.related_facts["jurisdiction"] = client.get_section_facts(entity_id, "jurisdiction")
         except DataApiError as exc:
