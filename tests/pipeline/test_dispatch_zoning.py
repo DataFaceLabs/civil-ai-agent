@@ -35,7 +35,7 @@ def _zoning_det(**inputs: Any) -> dict[str, Any]:
     }
 
 
-def test_pending_branch() -> None:
+def test_pending_branch_municipality_unresolved() -> None:
     spec = dispatch_zoning(
         _ctx(
             facts={
@@ -44,15 +44,33 @@ def test_pending_branch() -> None:
                     "allowed_use_flags": (
                         '["zoning_lookup_pending","manual_zoning_review_recommended"]'
                     ),
+                    "impervious_regs": "Impervious cover limits are governed by COA Land Development Code",
                 }
             },
             determinations=_zoning_det(
                 **{
-                    "jurisdiction.jurisdiction_primary": "Travis County (municipality unresolved)",
+                    "jurisdiction.jurisdiction_primary": "Bastrop County (municipality unresolved)",
                     "jurisdiction.review_track": "county_baseline",
                     "jurisdiction.in_etj": False,
                 }
             ),
+        )
+    )
+    assert spec.branch_id == "zoning.municipality_pending"
+    assert spec.tier == 2
+    assert "Bastrop" in spec.stems[0]
+    assert spec.slots.get("impervious_regs") is None
+
+
+def test_pending_branch_without_municipality_unresolved() -> None:
+    spec = dispatch_zoning(
+        _ctx(
+            facts={
+                "facts": {
+                    "zoning_code": None,
+                    "allowed_use_flags": '["zoning_lookup_pending"]',
+                }
+            },
         )
     )
     assert spec.branch_id == "zoning.pending"
@@ -147,6 +165,49 @@ def test_zoned_city_branch() -> None:
     assert spec.missing_inputs[0].name == "proposed_use"
 
 
+def test_zoned_city_flags_missing_overlays_gap() -> None:
+    spec = dispatch_zoning(
+        _ctx(
+            facts={
+                "facts": {
+                    "zoning_code": "CS",
+                    "zoning_base": "Commercial Services",
+                    "overlays": "[]",
+                    "allowed_use_flags": '["general_commercial"]',
+                }
+            },
+            determinations=_zoning_det(
+                **{
+                    "jurisdiction.jurisdiction_primary": "City of Austin",
+                    "jurisdiction.in_city_limits": True,
+                    "zoning.zoning_code": "CS",
+                }
+            ),
+        )
+    )
+    assert spec.branch_id == "zoning.zoned_city"
+    assert any(m.name == "zoning_overlays" for m in spec.missing_inputs)
+    assert any("Do not state that no overlays apply" in stem for stem in spec.stems)
+
+
+def test_zoned_city_with_overlays_skips_overlay_gap() -> None:
+    spec = dispatch_zoning(
+        _ctx(
+            facts={
+                "facts": {
+                    "zoning_code": "CS",
+                    "overlays": '["MU","V","NP"]',
+                    "allowed_use_flags": '["general_commercial"]',
+                }
+            },
+            determinations=_zoning_det(
+                **{"jurisdiction.jurisdiction_primary": "City of Austin"}
+            ),
+        )
+    )
+    assert not any(m.name == "zoning_overlays" for m in spec.missing_inputs)
+
+
 def test_counterfactual_limited_purpose_with_code_not_county() -> None:
     spec = dispatch_zoning(
         _ctx(
@@ -186,7 +247,7 @@ def test_counterfactual_pending_not_county() -> None:
             ),
         )
     )
-    assert spec.branch_id == "zoning.pending"
+    assert spec.branch_id == "zoning.municipality_pending"
     assert spec.branch_id != "zoning.county_no_zoning"
 
 

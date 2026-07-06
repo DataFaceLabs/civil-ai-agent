@@ -39,11 +39,12 @@ def _envelope(fetch: Callable[[], Any]) -> str:
 
 
 @tool
-def resolve_parcel(address: str = "", parcel_id: str = "") -> str:
+def resolve_parcel(address: str = "", parcel_id: str = "", county: str = "") -> str:
     """Resolve a street address or CAD parcel/account id to an entity_id.
 
     Use this before any other fact tool when entity_id is unknown. Provide the street
-    address, the parcel_id (authoritative CAD account id), or both.
+    address, the parcel_id (authoritative CAD account id), or both. When parcel_id is
+    set outside Travis, also pass county to avoid cross-county PROP_ID collisions.
     """
     if not address.strip() and not parcel_id.strip():
         return json.dumps({"status": "error", "error": "Provide address or parcel_id"})
@@ -52,6 +53,7 @@ def resolve_parcel(address: str = "", parcel_id: str = "") -> str:
         lambda: client.resolve_parcel(
             address=address.strip() or None,
             parcel_id=parcel_id.strip() or None,
+            county=county.strip() or None,
         )
     )
 

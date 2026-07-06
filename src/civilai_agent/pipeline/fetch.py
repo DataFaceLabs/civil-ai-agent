@@ -19,6 +19,7 @@ class SectionContext(BaseModel):
     facts: dict[str, Any] | None = None
     determinations: dict[str, Any] | None = None
     provenance: dict[str, Any] | None = None
+    related_facts: dict[str, dict[str, Any]] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
 
 
@@ -53,5 +54,13 @@ def fetch_section_context(
         ctx.provenance = client.get_provenance(entity_id)
     except DataApiError as exc:
         ctx.errors.append(f"get_provenance: {exc}")
+
+    if section_id in ("zoning", "environmental", "flood"):
+        try:
+            ctx.related_facts["jurisdiction"] = client.get_section_facts(
+                entity_id, "jurisdiction"
+            )
+        except DataApiError as exc:
+            ctx.errors.append(f"jurisdiction facts (related): {exc}")
 
     return ctx

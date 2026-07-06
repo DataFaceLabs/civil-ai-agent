@@ -136,8 +136,195 @@ def _run_zoning_pipeline(
     return finalize_pipeline_response(response)
 
 
+def _run_flood_pipeline(
+    ctx: SectionContext,
+    *,
+    dry_run: bool,
+) -> AgentResponse:
+    from civilai_agent.pipeline.dispatch.flood import dispatch_flood
+    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.templates.flood import render_flood_tier1
+
+    spec = dispatch_flood(ctx)
+
+    if spec.tier == 1:
+        structured = render_flood_tier1(spec)
+        response = _response_from_structured(
+            structured,
+            section_id="flood",
+            pipeline_path="template",
+            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_template"),
+            branch_id=spec.branch_id,
+        )
+    elif dry_run:
+        prompt = build_render_prompt(spec)
+        message = (
+            f"[pipeline dry-run] would render flood branch={spec.branch_id} "
+            f"tier={spec.tier}\n{prompt}"
+        )
+        return AgentResponse(
+            message=message,
+            trace_summary=TraceSummary(
+                tools_used=(
+                    "pipeline_fetch",
+                    "pipeline_dispatch",
+                    "pipeline_render_dry_run",
+                ),
+            ),
+            artifacts=(
+                AgentArtifact(
+                    type="draft_section",
+                    title="Draft — flood",
+                    status="partial",
+                    section_id="flood",
+                    body=message,
+                    metadata={
+                        "pipeline_path": "render",
+                        "branch_id": spec.branch_id,
+                    },
+                ),
+            ),
+        )
+    else:
+        started = time.perf_counter()
+        structured = render_draft(spec)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        response = _response_from_structured(
+            structured,
+            section_id="flood",
+            pipeline_path="render",
+            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
+            branch_id=spec.branch_id,
+            latency_ms=elapsed_ms,
+        )
+
+    response = append_fact_echo_warnings(response, spec)
+    return finalize_pipeline_response(response)
+
+
+def _run_utilities_pipeline(
+    ctx: SectionContext,
+    *,
+    dry_run: bool,
+) -> AgentResponse:
+    from civilai_agent.pipeline.dispatch.utilities import dispatch_utilities
+    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+
+    spec = dispatch_utilities(ctx)
+
+    if dry_run:
+        prompt = build_render_prompt(spec)
+        message = (
+            f"[pipeline dry-run] would render utilities branch={spec.branch_id} "
+            f"tier={spec.tier}\n{prompt}"
+        )
+        return AgentResponse(
+            message=message,
+            trace_summary=TraceSummary(
+                tools_used=(
+                    "pipeline_fetch",
+                    "pipeline_dispatch",
+                    "pipeline_render_dry_run",
+                ),
+            ),
+            artifacts=(
+                AgentArtifact(
+                    type="draft_section",
+                    title="Draft — utilities",
+                    status="partial",
+                    section_id="utilities",
+                    body=message,
+                    metadata={
+                        "pipeline_path": "render",
+                        "branch_id": spec.branch_id,
+                    },
+                ),
+            ),
+        )
+
+    started = time.perf_counter()
+    structured = render_draft(spec)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    response = _response_from_structured(
+        structured,
+        section_id="utilities",
+        pipeline_path="render",
+        trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
+        branch_id=spec.branch_id,
+        latency_ms=elapsed_ms,
+    )
+    response = append_fact_echo_warnings(response, spec)
+    return finalize_pipeline_response(response)
+
+
+def _run_environmental_pipeline(
+    ctx: SectionContext,
+    *,
+    dry_run: bool,
+) -> AgentResponse:
+    from civilai_agent.pipeline.dispatch.environmental import dispatch_environmental
+    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.templates.environmental import render_environmental_tier1
+
+    spec = dispatch_environmental(ctx)
+
+    if spec.tier == 1:
+        structured = render_environmental_tier1(spec)
+        response = _response_from_structured(
+            structured,
+            section_id="environmental",
+            pipeline_path="template",
+            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_template"),
+            branch_id=spec.branch_id,
+        )
+    elif dry_run:
+        prompt = build_render_prompt(spec)
+        message = (
+            f"[pipeline dry-run] would render environmental branch={spec.branch_id} "
+            f"tier={spec.tier}\n{prompt}"
+        )
+        return AgentResponse(
+            message=message,
+            trace_summary=TraceSummary(
+                tools_used=(
+                    "pipeline_fetch",
+                    "pipeline_dispatch",
+                    "pipeline_render_dry_run",
+                ),
+            ),
+            artifacts=(
+                AgentArtifact(
+                    type="draft_section",
+                    title="Draft — environmental",
+                    status="partial",
+                    section_id="environmental",
+                    body=message,
+                    metadata={
+                        "pipeline_path": "render",
+                        "branch_id": spec.branch_id,
+                    },
+                ),
+            ),
+        )
+    else:
+        started = time.perf_counter()
+        structured = render_draft(spec)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        response = _response_from_structured(
+            structured,
+            section_id="environmental",
+            pipeline_path="render",
+            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
+            branch_id=spec.branch_id,
+            latency_ms=elapsed_ms,
+        )
+
+    response = append_fact_echo_warnings(response, spec)
+    return finalize_pipeline_response(response)
+
+
 def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
-    """Deterministic fetch → gate → section dispatch (zoning) or legacy fallback."""
+    """Deterministic fetch → gate → section dispatch or legacy fallback."""
     entity_id = context.entity_id
     section_id = context.active_section_id or "section"
     if not entity_id:
@@ -153,6 +340,15 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
 
     if section_id == "zoning":
         return _run_zoning_pipeline(ctx, dry_run=dry_run)
+
+    if section_id == "flood":
+        return _run_flood_pipeline(ctx, dry_run=dry_run)
+
+    if section_id == "utilities":
+        return _run_utilities_pipeline(ctx, dry_run=dry_run)
+
+    if section_id == "environmental":
+        return _run_environmental_pipeline(ctx, dry_run=dry_run)
 
     from civilai_agent.runner import run_legacy_agent
 
