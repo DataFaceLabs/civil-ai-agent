@@ -77,7 +77,7 @@ class DataApiClient:
             raise DataApiError(f"{method} {path} failed: {exc}") from exc
 
     def resolve_parcel(
-        self, *, address: str | None = None, parcel_id: str | None = None
+        self, *, address: str | None = None, parcel_id: str | None = None, county: str | None = None
     ) -> dict[str, Any]:
         # Backend EntityResolveRequest is extra="forbid" and accepts address / parcel_id
         # (NOT prop_id — sending prop_id 422s). parcel_id is the authoritative CAD account id.
@@ -86,6 +86,8 @@ class DataApiClient:
             body["address"] = address
         if parcel_id:
             body["parcel_id"] = parcel_id
+        if county:
+            body["county"] = county
         return self._request("POST", "/v1/entities/resolve", json=body)
 
     def get_section_facts(self, entity_id: str, section_id: str) -> dict[str, Any]:
