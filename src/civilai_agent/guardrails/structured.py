@@ -11,6 +11,8 @@ from civilai_agent.guardrails.web_search_models import WebSearchResult
 
 
 class SectionDraftOutput(BaseModel):
+    """The structured JSON contract every section draft must satisfy."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     suggested_language: str = Field(min_length=1)

@@ -79,6 +79,20 @@ def test_will_serve_safe_recommendation_not_flagged() -> None:
     assert not any("forbidden phrase: 'will-serve'" in w for w in warnings)
 
 
+def test_will_serve_negative_capacity_sentence_not_flagged() -> None:
+    # The exact cautionary form real drafts emit: coverage != capacity, listing
+    # "will-serve commitment" among things NOT confirmed. Must not be flagged.
+    output = SectionDraftOutput(
+        suggested_language=(
+            "These service-area findings indicate boundary coverage only and do not "
+            "confirm available capacity, tap availability, pressure, fire-flow, or "
+            "will-serve commitment."
+        )
+    )
+    warnings = evaluate_structured_guardrails(output, DEFAULT_GUARDRAILS, section_id="utilities")
+    assert not any("forbidden phrase: 'will-serve'" in w for w in warnings)
+
+
 def test_will_serve_affirmative_claim_still_flagged() -> None:
     # Actually overclaiming capacity -- this must still be caught.
     output = SectionDraftOutput(suggested_language="The provider will-serve the site.")

@@ -27,9 +27,7 @@ def test_trace_eval_passes_within_budget(tmp_path: Path) -> None:
 
 
 def test_trace_eval_fails_on_excess_searches(tmp_path: Path) -> None:
-    lines = [
-        f'{{"event":"tool","tool":"web_search_deduped","query":"q{i}"}}' for i in range(6)
-    ]
+    lines = [f'{{"event":"tool","tool":"web_search_deduped","query":"q{i}"}}' for i in range(6)]
     trace_path = tmp_path / "trace.jsonl"
     trace_path.write_text("\n".join(lines), encoding="utf-8")
     result = evaluate_trace_file(trace_path, max_web_searches=5)

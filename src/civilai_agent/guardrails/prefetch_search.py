@@ -66,7 +66,9 @@ def derive_prefetch_queries(
     if impervious and juris:
         queries.append(normalize_search_query(f"{juris} impervious cover regulations {impervious}"))
     elif zoning and juris:
-        queries.append(normalize_search_query(f"{juris} zoning district {zoning} development standards"))
+        queries.append(
+            normalize_search_query(f"{juris} zoning district {zoning} development standards")
+        )
 
     city = _extract_city(juris)
     if address and city:

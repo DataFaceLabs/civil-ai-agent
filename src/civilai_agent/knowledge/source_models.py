@@ -67,8 +67,11 @@ NON_FINAL_AUTHORITY: frozenset[AuthorityLevel] = frozenset(
 
 
 class SourceCategory(StrEnum):
-    """The bucket a source belongs to. Drives its default retrieval index and its
-    retrieval-priority tier (see ``retrieval_policy.RETRIEVAL_PRIORITY``)."""
+    """The bucket a source belongs to.
+
+    Drives its default retrieval index and its retrieval-priority tier (see
+    ``retrieval_policy.RETRIEVAL_PRIORITY``).
+    """
 
     REGULATORY_AUTHORITY = "regulatory_authority"
     AGENCY_GUIDANCE = "agency_guidance"
@@ -82,9 +85,12 @@ class SourceCategory(StrEnum):
 
 
 class RetrievalIndex(StrEnum):
-    """A retrieval namespace / vector-store partition. Kept 1:1 with categories so we
-    never mix an adopted ordinance and a blog into one undifferentiated store, but a
-    source may be assigned to more than one index when it legitimately serves two."""
+    """A retrieval namespace / vector-store partition.
+
+    Kept 1:1 with categories so we never mix an adopted ordinance and a blog into
+    one undifferentiated store, but a source may be assigned to more than one
+    index when it legitimately serves two.
+    """
 
     REGULATORY_AUTHORITY = "regulatory_authority"
     AGENCY_GUIDANCE = "agency_guidance"
@@ -112,8 +118,11 @@ CATEGORY_DEFAULT_INDEX: dict[SourceCategory, RetrievalIndex] = {
 
 
 class Domain(StrEnum):
-    """Feasibility-study domains a source can inform. Aligned with the report sections
-    the determination engine and agent already speak in."""
+    """Feasibility-study domains a source can inform.
+
+    Aligned with the report sections the determination engine and agent already
+    speak in.
+    """
 
     PARCEL_JURISDICTION = "parcel_jurisdiction"
     ZONING = "zoning"
@@ -160,6 +169,8 @@ REFRESH_MAX_AGE_DAYS: dict[RefreshCadence, int | None] = {
 
 
 class FileFormat(StrEnum):
+    """Document format of a knowledge source's raw content."""
+
     PDF = "pdf"
     DOCX = "docx"
     HTML = "html"
@@ -173,8 +184,10 @@ class FileFormat(StrEnum):
 
 
 class ExpiryPolicy(IntEnum):
-    """Whether stale alerts should be dropped from retrieval. Alerts expire; adopted
-    actions they point to do not."""
+    """Whether stale alerts should be dropped from retrieval.
+
+    Alerts expire; adopted actions they point to do not.
+    """
 
     KEEP = 0
     EXPIRE_WHEN_STALE = 1
@@ -280,9 +293,9 @@ class KnowledgeSource(BaseModel):
         city_norm = " ".join(city.strip().lower().split()) if city else None
         if county_norm and county_norm in self.applicable_counties:
             return True
-        if city_norm and (city_norm in self.applicable_cities or city_norm in self.applicable_etj):
-            return True
-        return False
+        return bool(
+            city_norm and (city_norm in self.applicable_cities or city_norm in self.applicable_etj)
+        )
 
     def is_stale(self, as_of: date) -> bool:
         """True when a scheduled source is past its refresh window.

@@ -9,6 +9,7 @@ authors = [{ name = "DataFace Labs" }]
 
 dependencies = [
     "pydantic>=2.7",
+    "pydantic-settings>=2.3",
     "httpx>=0.27",
     "strands-agents>=1.0",
     "boto3>=1.43",
@@ -21,12 +22,18 @@ dev = [
     "respx>=0.21",
     "ruff>=0.5",
     "mypy>=1.10",
+    "types-PyYAML>=6.0",
 ]
 # Dev-only local HTTP wrapper (civilai-agent serve) -- not part of the production
 # agent runtime, which is invoked via runner.run_agent() from AgentCore/the platform.
 serve = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
+]
+# Optional model provider: direct OpenAI API (CIVILAI_MODEL_PROVIDER=openai), for eval
+# comparisons when a model isn't available via the Bedrock path.
+openai = [
+    "openai>=1.50",
 ]
 
 [project.scripts]
@@ -42,9 +49,42 @@ packages = ["src/civilai_agent"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B"]
+# Rule set aligned with civil-ai-data; D (pydocstyle, Google convention) is
+# enabled here first — see AGENTS.md "Code quality standards".
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "SIM",      # simplify
+    "RUF",      # ruff-specific
+    "N",        # pep8-naming
+    "C4",       # comprehensions
+    "D",        # pydocstyle — Google convention
+]
+ignore = [
+    "E501",     # line length handled by formatter
+    # Missing-docstring rules are enforced for modules and classes only;
+    # requiring a docstring on every method/helper adds noise, not clarity.
+    "D102",     # undocumented public method (trivial accessors dominate)
+    "D103",     # undocumented public function (public API docstrings still encouraged)
+    "D104",     # undocumented public package (__init__.py re-exports)
+    "D105",     # undocumented magic method
+    "D107",     # undocumented __init__
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]  # tests document themselves through their names
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

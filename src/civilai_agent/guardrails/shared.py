@@ -16,12 +16,19 @@ _SAFE_WILL_SERVE_MARKERS = (
     "obtain a will-serve",
     "will-serve letter",
     "will-serve status",
+    "will-serve commitment",
+    "do not confirm",
+    "does not confirm",
+    "do not establish",
+    "does not establish",
     "pending",
 )
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 
 class GuardrailConfig:
+    """Forbidden phrases + required disclaimers evaluated on agent output."""
+
     def __init__(
         self,
         *,

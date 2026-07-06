@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import os
-from typing import Any
+from typing import Any, cast
 
 import httpx
+
+from civilai_agent.config import DATA_API_TIMEOUT_DEFAULT, settings
 
 
 class DataApiError(RuntimeError):
@@ -31,16 +32,19 @@ class DataApiClient:
         data_scopes: tuple[str, ...] = (),
         timeout: float | None = None,
     ) -> None:
-        proxy = os.getenv("CIVILAI_PLATFORM_DATA_PROXY", "").strip()
-        self.base_url = (
-            base_url or proxy or os.getenv("CIVILAI_DATA_API_BASE", "http://localhost:8000")
-        ).rstrip("/")
-        self.service_key = service_key or os.getenv("CIVILAI_DATA_SERVICE_KEY", "").strip()
+        cfg = settings()
+        proxy = cfg.platform_data_proxy.strip()
+        resolved_base = base_url if base_url else (proxy or cfg.data_api_base)
+        self.base_url = resolved_base.rstrip("/")
+        self.service_key = service_key or cfg.data_service_key.strip()
         self.data_scopes = data_scopes
         # Determinations over Athena can run long; allow an env override for slow backends.
-        self.timeout = (
-            timeout if timeout is not None else float(os.getenv("CIVILAI_DATA_API_TIMEOUT", "30"))
-        )
+        if timeout is not None:
+            self.timeout = timeout
+        elif cfg.data_api_timeout is not None:
+            self.timeout = cfg.data_api_timeout
+        else:
+            self.timeout = DATA_API_TIMEOUT_DEFAULT
 
     def _headers(self) -> dict[str, str]:
         headers: dict[str, str] = {"Accept": "application/json"}
@@ -56,13 +60,13 @@ class DataApiClient:
         path: str,
         *,
         json: dict[str, Any] | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         url = f"{self.base_url}{path}"
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 resp = client.request(method, url, headers=self._headers(), json=json)
                 resp.raise_for_status()
-                return resp.json()
+                return cast(dict[str, Any], resp.json())
         except httpx.HTTPStatusError as exc:
             detail = _error_detail(exc.response)
             raise DataApiError(
@@ -73,7 +77,7 @@ class DataApiClient:
             raise DataApiError(f"{method} {path} failed: {exc}") from exc
 
     def resolve_parcel(
-        self, *, address: str | None = None, parcel_id: str | None = None
+        self, *, address: str | None = None, parcel_id: str | None = None, county: str | None = None
     ) -> dict[str, Any]:
         # Backend EntityResolveRequest is extra="forbid" and accepts address / parcel_id
         # (NOT prop_id — sending prop_id 422s). parcel_id is the authoritative CAD account id.
@@ -82,6 +86,8 @@ class DataApiClient:
             body["address"] = address
         if parcel_id:
             body["parcel_id"] = parcel_id
+        if county:
+            body["county"] = county
         return self._request("POST", "/v1/entities/resolve", json=body)
 
     def get_section_facts(self, entity_id: str, section_id: str) -> dict[str, Any]:

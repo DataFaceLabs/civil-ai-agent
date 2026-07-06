@@ -1,4 +1,4 @@
-.PHONY: install test lint format agent install-hooks gauntlet
+.PHONY: install test lint typecheck format agent install-hooks gauntlet
 
 install:
 	uv sync --all-extras
@@ -8,17 +8,19 @@ install-hooks: ## Install git pre-push hook (runs make gauntlet before every pus
 	@chmod +x .git/hooks/pre-push
 	@echo "pre-push hook installed"
 
-# Lint is excluded: this repo currently has pre-existing lint violations (8 as of
-# 2026-07-02) unrelated to any given change. Re-add here once that debt is cleaned up.
-# Same command name as civil-ai-data's `make gauntlet` -- run this before every PR.
-gauntlet: test
+# CI-parity quality gate (same name and shape as civil-ai-data's `make gauntlet`).
+# Run before every PR/push. Keep it green — never re-exclude a step to "fix later".
+gauntlet: lint typecheck test
 
 test:
 	uv run pytest -q
 
 lint:
-	uv run ruff check .
-	uv run ruff format --check .
+	uv run ruff check src tests
+	uv run ruff format --check src tests
+
+typecheck:
+	uv run mypy
 
 format:
 	uv run ruff check --fix .

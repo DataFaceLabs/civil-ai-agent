@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
-import os
-
 from strands.models import BedrockModel
+
+from civilai_agent.config import settings
 
 
 def default_bedrock_model_id() -> str:
-    return os.getenv(
-        "CIVILAI_BEDROCK_MODEL_ID",
-        "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-    ).strip()
+    """Model id from CIVILAI_BEDROCK_MODEL_ID, defaulting to Haiku 4.5."""
+    return settings().bedrock_model_id.strip()
 
 
-def build_bedrock_model(*, temperature: float = 0.2) -> BedrockModel:
-    region = os.getenv("AWS_DEFAULT_REGION", "us-east-1").strip()
+def build_bedrock_model(*, temperature: float = 0.2, model_id: str | None = None) -> BedrockModel:
+    """Build a Strands BedrockModel in the configured AWS region."""
     return BedrockModel(
-        model_id=default_bedrock_model_id(),
-        region_name=region,
+        model_id=model_id or default_bedrock_model_id(),
+        region_name=settings().aws_region.strip(),
         temperature=temperature,
     )

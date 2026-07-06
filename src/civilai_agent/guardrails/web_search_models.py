@@ -12,6 +12,8 @@ WebSearchQueryMode = Literal["deterministic", "hybrid"]
 
 
 class WebSearchConfig(BaseModel):
+    """Session limits, domain policy, and provider knobs for web search."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     enabled: bool = False
@@ -31,6 +33,8 @@ class WebSearchConfig(BaseModel):
 
 
 class WebSearchResult(BaseModel):
+    """A single provider hit (title, url, snippet)."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     title: str
@@ -39,6 +43,8 @@ class WebSearchResult(BaseModel):
 
 
 class WebSearchTraceEntry(BaseModel):
+    """One executed (or deduped) query and its results, for the run trace."""
+
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     query: str

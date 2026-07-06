@@ -73,3 +73,42 @@ This repo is one of five siblings under Project Landmark (`civil-ai`, `civil-ai-
 annotations, tests for anything that calls an external service (use `respx` for HTTP
 mocking, no live network calls in tests), no bare `except: pass`, no speculative
 abstractions or unused feature flags.
+
+## Code quality standards (2026-07-05 review baseline)
+
+These are enforced by `make gauntlet` (ruff check + format check + mypy strict + pytest)
+and CI-parity with `civil-ai-data`. The gauntlet must stay green — never re-exclude a
+step "to fix later"; that is how this repo previously accumulated silent lint debt and a
+broken mypy config (missing `py.typed`).
+
+- **Ruff**: rule set `E,W,F,I,B,UP,SIM,RUF,N,C4,D` with `convention = "google"`,
+  `E501` delegated to the formatter. Aligned with `civil-ai-data` — change both or
+  neither.
+- **Typing**: mypy `strict = true`, zero errors, `py.typed` present. No `Any` unless
+  genuinely unavoidable at an untyped boundary (JSON payloads, framework objects) —
+  and prefer narrowing it at the edge (`cast`, `isinstance`) over letting it spread.
+- **Docstrings**: Google convention. Every module and public class carries at least a
+  one-line summary (D100/D101 enforced); methods/functions document themselves through
+  names and types unless the logic is non-obvious. Multi-line docstrings: summary line,
+  blank line, detail.
+- **Configuration**: every env var is declared in `civilai_agent/config.py`
+  (`AgentSettings`). Never read `os.getenv` inline at a call site; never cache
+  `settings()` at module level (the eval harness mutates env between runs).
+- **No scratch files**: nothing committed at the repo root that dodges the linters
+  (no `.pye`, no `test_*.py` outside `tests/`). One-off scripts either graduate into
+  `scripts/`-style tooling or don't get committed.
+
+### Agentic design principles (per ADR-0006 and the deterministic pipeline)
+
+- Deterministic-first: branch selection, fact fetching, and templates are Python; the
+  LLM is a constrained renderer. Never widen the model's freedom to fix an eval failure —
+  fix the dispatcher or template instead.
+- Safety is enforced in code (gates, validators, guardrails), never in prompt wording
+  alone. Prompt rules are UX, not controls.
+- LLM calls are bounded: single-call renders with at most one structured-parse retry.
+  No unbounded loops.
+- Observability is mandatory: every pipeline artifact carries `pipeline_path` and
+  `branch_id`; `TraceSummary` carries latency and token counts. New paths must stamp
+  equivalent metadata before they ship.
+- The LLM/guardrail layer lives HERE. `civil-ai-data`'s `src/civilai/llm/` is a
+  deprecated experimental duplicate — do not extend it, and do not port changes into it.

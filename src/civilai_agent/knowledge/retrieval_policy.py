@@ -99,18 +99,14 @@ def can_support_final_finding(source: KnowledgeSource, *, as_of: date | None = N
         return False
     if source.authority_level in NON_FINAL_AUTHORITY:
         return False
-    if as_of is not None and source.is_stale(as_of):
-        return False
-    return True
+    return not (as_of is not None and source.is_stale(as_of))
 
 
 def _is_dropped(source: KnowledgeSource, query: RetrievalQuery) -> bool:
     """Whether a source should be filtered out entirely for this query."""
     if query.include_stale or query.as_of is None:
         return False
-    if source.expiry_policy == ExpiryPolicy.EXPIRE_WHEN_STALE and source.is_stale(query.as_of):
-        return True
-    return False
+    return source.expiry_policy == ExpiryPolicy.EXPIRE_WHEN_STALE and source.is_stale(query.as_of)
 
 
 def rank_sources(registry: SourceRegistry, query: RetrievalQuery) -> tuple[RankedSource, ...]:
