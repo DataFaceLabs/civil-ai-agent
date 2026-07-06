@@ -6,8 +6,6 @@ from unittest.mock import MagicMock, patch
 
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.models.context import (
-    AgentArtifact,
-    AgentResponse,
     AgentWorkflow,
     WorkbenchContext,
 )
@@ -111,27 +109,39 @@ def test_zoning_tier2_live_calls_renderer(mock_render: MagicMock) -> None:
     assert "CS" in response.message
 
 
-@patch("civilai_agent.runner.run_legacy_agent")
-def test_non_zoning_still_uses_legacy_with_path_tag(mock_legacy: MagicMock) -> None:
-    mock_legacy.return_value = AgentResponse(
-        message="Environmental draft.",
-        artifacts=(
-            AgentArtifact(
-                type="draft_section",
-                title="Draft — environmental",
-                section_id="environmental",
-                body="Environmental draft.",
-            ),
-        ),
-    )
+@patch("civilai_agent.pipeline.templates.environmental.render_environmental_tier1")
+@patch("civilai_agent.pipeline.dispatch.environmental.dispatch_environmental")
+@patch("civilai_agent.pipeline.run.fetch_section_context")
+def test_environmental_uses_pipeline_not_legacy(
+    mock_fetch: MagicMock,
+    mock_dispatch: MagicMock,
+    mock_template: MagicMock,
+) -> None:
+    from civilai_agent.guardrails.structured import SectionDraftOutput
+    from civilai_agent.pipeline.specs import DraftSpec
+
     ctx = SectionContext(
         entity_id="ent-1",
         section_id="environmental",
-        facts={"facts": {"edwards_zone": "outside"}},
+        facts={"facts": {"wpap_type": "outside", "cwqz_setback_ft": None}},
+    )
+    mock_fetch.return_value = ctx
+    mock_dispatch.return_value = DraftSpec(
+        entity_id="ent-1",
+        section_id="environmental",
+        branch_id="environmental.edwards_outside",
+        tier=1,
+    )
+    mock_template.return_value = SectionDraftOutput(
+        suggested_language="Outside Edwards Aquifer.",
+        caveats=(),
+        verification_steps=(),
+        data_gaps=(),
+        sources=(),
     )
 
-    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=ctx):
-        response = run_section_draft(_context(section_id="environmental"), dry_run=True)
+    response = run_section_draft(_context(section_id="environmental"), dry_run=False)
 
-    mock_legacy.assert_called_once()
-    assert response.artifacts[0].metadata["pipeline_path"] == "legacy"
+    mock_dispatch.assert_called_once()
+    mock_template.assert_called_once()
+    assert response.artifacts[0].metadata["pipeline_path"] == "template"

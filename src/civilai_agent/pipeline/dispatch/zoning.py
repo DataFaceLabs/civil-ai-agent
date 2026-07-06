@@ -66,13 +66,49 @@ def _determination_items(ctx: SectionContext) -> list[dict[str, Any]]:
     return []
 
 
+def _jurisdiction_det_inputs(ctx: SectionContext) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for item in _determination_items(ctx):
+        if item.get("determination_id") in {"zoning_district", "permitting_authority"}:
+            used = item.get("inputs_used")
+            if isinstance(used, dict):
+                merged.update(used)
+    juris_section = ctx.related_facts.get("jurisdiction") if ctx.related_facts else None
+    if isinstance(juris_section, dict):
+        inner_j = juris_section.get("facts")
+        if isinstance(inner_j, dict):
+            for key, value in inner_j.items():
+                merged.setdefault(f"jurisdiction.{key}", value)
+    return merged
+
+
 def _zoning_det_inputs(ctx: SectionContext) -> dict[str, Any]:
     for item in _determination_items(ctx):
         if item.get("determination_id") == "zoning_district":
             used = item.get("inputs_used")
             if isinstance(used, dict):
                 return used
-    return {}
+    return _jurisdiction_det_inputs(ctx)
+
+
+def _municipality_unresolved(jctx: dict[str, Any]) -> bool:
+    juris = (jctx.get("jurisdiction_primary") or "").lower()
+    return "municipality unresolved" in juris or "municipality resolution" in juris
+
+
+def _strip_misleading_austin_bootstrap(
+    slots: dict[str, str | None],
+    inner: dict[str, Any],
+    jctx: dict[str, Any],
+) -> None:
+    """Drop Travis/COA bootstrap prose when jurisdiction facts name another county."""
+    juris = (jctx.get("jurisdiction_primary") or "").lower()
+    if "city of austin" in juris or juris.startswith("travis"):
+        return
+    for key in ("impervious_regs", "compatibility_stds"):
+        val = slots.get(key) or inner.get(key)
+        if val and ("coa " in str(val).lower() or "city of austin" in str(val).lower()):
+            slots[key] = None
 
 
 def _jurisdiction_context(ctx: SectionContext) -> dict[str, Any]:
@@ -100,6 +136,17 @@ def _etj_city_label(jurisdiction: str) -> str:
 
 def _has_pending_flags(flags: list[str]) -> bool:
     return any(flag in _PENDING_FLAGS for flag in flags)
+
+
+def _overlays_present(raw: Any) -> bool:
+    text = _normalize_code(raw)
+    if not text or text == "[]":
+        return False
+    try:
+        parsed = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return True
+    return bool(parsed)
 
 
 def _is_limited_purpose(jctx: dict[str, Any]) -> bool:
@@ -175,7 +222,14 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
         "review_track": (
             str(jctx["review_track"]) if jctx.get("review_track") is not None else None
         ),
+        "impervious_regs": str(inner.get("impervious_regs"))
+        if inner.get("impervious_regs") is not None
+        else None,
+        "compatibility_stds": str(inner.get("compatibility_stds"))
+        if inner.get("compatibility_stds") is not None
+        else None,
     }
+    _strip_misleading_austin_bootstrap(slots, inner, jctx)
 
     facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
     citations = _build_citations(facts_payload)
@@ -183,12 +237,24 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
     missing_inputs: list[MissingInput] = []
 
     if _has_pending_flags(flags):
-        branch_id = "zoning.pending"
+        if _municipality_unresolved(jctx):
+            branch_id = "zoning.municipality_pending"
+            county = _county_label(jctx.get("jurisdiction_primary") or "the")
+            stems = [
+                f"State that municipal limits and zoning district within {county} County "
+                "are not resolved in governed data.",
+                "Do not cite City of Austin or Travis County zoning unless jurisdiction "
+                "facts establish that authority.",
+                "Recommend municipal and county planning verification before asserting a "
+                "zoning district or allowed uses.",
+            ]
+        else:
+            branch_id = "zoning.pending"
+            stems = [
+                "State that zoning district lookup is pending or requires manual review.",
+                "Do not assert that zoning does not apply or that the parcel is unzoned.",
+            ]
         tier = 2
-        stems = [
-            "State that zoning district lookup is pending or requires manual review.",
-            "Do not assert that zoning does not apply or that the parcel is unzoned.",
-        ]
     elif zoning_code:
         if _is_limited_purpose(jctx):
             branch_id = "zoning.coa_limited_purpose"
@@ -209,6 +275,23 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
             ]
         tier = 2
         missing_inputs = [_PROPOSED_USE_GAP]
+        if not _overlays_present(inner.get("overlays")):
+            stems.append(
+                "No zoning overlay district was identified in governed data for this base "
+                "district; combining/overlay suffixes (e.g. -NP, -MU, -CO, -V) are not yet "
+                "captured by the zoning connector. Do not state that no overlays apply — "
+                "recommend verification with City of Austin zoning GIS."
+            )
+            missing_inputs.append(
+                MissingInput(
+                    name="zoning_overlays",
+                    why_needed=(
+                        "Combining/overlay districts materially change use and density rules "
+                        "and are not captured by the current zoning connector."
+                    ),
+                    resolution="data-gap",
+                )
+            )
     elif _is_etj(jctx):
         branch_id = "zoning.etj"
         tier = 0
