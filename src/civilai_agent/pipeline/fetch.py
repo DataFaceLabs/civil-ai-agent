@@ -57,9 +57,7 @@ def fetch_section_context(
 
     if section_id in ("zoning", "environmental", "flood"):
         try:
-            ctx.related_facts["jurisdiction"] = client.get_section_facts(
-                entity_id, "jurisdiction"
-            )
+            ctx.related_facts["jurisdiction"] = client.get_section_facts(entity_id, "jurisdiction")
         except DataApiError as exc:
             ctx.errors.append(f"jurisdiction facts (related): {exc}")
 

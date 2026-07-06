@@ -132,8 +132,7 @@ def test_ossf_lot_size_determination_wired_when_ossf_branch() -> None:
     )
     assert spec.branch_id == "utilities.ossf"
     assert any(
-        item.get("determination_id") == "ossf_lot_size_feasibility"
-        for item in spec.determinations
+        item.get("determination_id") == "ossf_lot_size_feasibility" for item in spec.determinations
     )
     assert any("OSSF lot-size feasibility" in stem for stem in spec.stems)
     assert any("0.85 ac" in stem for stem in spec.stems)

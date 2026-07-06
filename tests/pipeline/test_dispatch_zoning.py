@@ -200,9 +200,7 @@ def test_zoned_city_with_overlays_skips_overlay_gap() -> None:
                     "allowed_use_flags": '["general_commercial"]',
                 }
             },
-            determinations=_zoning_det(
-                **{"jurisdiction.jurisdiction_primary": "City of Austin"}
-            ),
+            determinations=_zoning_det(**{"jurisdiction.jurisdiction_primary": "City of Austin"}),
         )
     )
     assert not any(m.name == "zoning_overlays" for m in spec.missing_inputs)

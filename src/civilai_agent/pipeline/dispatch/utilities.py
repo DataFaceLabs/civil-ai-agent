@@ -238,9 +238,7 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         stems.append(f"Fire protection district: {esd_name}.")
 
     if ossf_lot_size_conclusion and (
-        ossf_required is True
-        or branch_id == "utilities.ossf"
-        or ossf_existing_retained is not None
+        ossf_required is True or branch_id == "utilities.ossf" or ossf_existing_retained is not None
     ):
         stems.append(f"OSSF lot-size feasibility: {ossf_lot_size_conclusion}")
     elif ossf_required is True and ossf_existing_retained is None:
