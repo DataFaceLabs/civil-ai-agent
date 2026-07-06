@@ -99,9 +99,7 @@ def _verification_steps(spec: DraftSpec) -> tuple[str, ...]:
             ]
         )
     elif spec.slots.get("in_travis_county") == "true" and not spec.slots.get("cwqz_setback_ft"):
-        steps.append(
-            "Verify off-site CWQZ intermediate waterway buffers with City of Austin GIS."
-        )
+        steps.append("Verify off-site CWQZ intermediate waterway buffers with City of Austin GIS.")
     if spec.slots.get("erosion_hazard_pending") == "true":
         steps.append("Confirm Erosion Hazard Zone overlay applicability with City of Austin GIS.")
     return tuple(steps)

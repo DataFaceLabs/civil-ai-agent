@@ -12,7 +12,9 @@ from civilai_agent.pipeline.templates.environmental import (
 )
 
 
-def _ctx(*, facts: dict[str, Any] | None = None, determinations: dict[str, Any] | None = None) -> SectionContext:
+def _ctx(
+    *, facts: dict[str, Any] | None = None, determinations: dict[str, Any] | None = None
+) -> SectionContext:
     return SectionContext(
         entity_id="ent-env",
         section_id="environmental",
@@ -194,9 +196,7 @@ def test_joseph_class_composite_watershed_cwqz_ehz() -> None:
                 "determinations": [
                     {
                         "determination_id": "watershed_classification",
-                        "inputs_used": {
-                            "watershed.watershed_name": "Walnut Creek-Colorado River"
-                        },
+                        "inputs_used": {"watershed.watershed_name": "Walnut Creek-Colorado River"},
                     }
                 ]
             },
