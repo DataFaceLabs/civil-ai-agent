@@ -48,7 +48,7 @@ def test_county_null_zoning_uses_pending_not_non_zoning_template() -> None:
     )
 
     with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=ctx):
-        response = run_section_draft(_context(), dry_run=False)
+        response = run_section_draft(_context(), dry_run=True)
 
     assert response.artifacts
     assert response.artifacts[0].metadata["pipeline_path"] == "render"
