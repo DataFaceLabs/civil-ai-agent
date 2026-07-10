@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from civilai_agent.models.search_policy import SearchRunPolicy
+
 SearchDepth = Literal["basic", "advanced"]
 WebSearchExecutionMode = Literal["server", "openai_native"]
 WebSearchQueryMode = Literal["deterministic", "hybrid"]
@@ -30,6 +32,19 @@ class WebSearchConfig(BaseModel):
 
     def is_active(self) -> bool:
         return self.enabled and self.max_queries_per_invoke > 0
+
+    @classmethod
+    def from_search_run_policy(cls, policy: SearchRunPolicy) -> WebSearchConfig:
+        """Build a session config from a platform-resolved search policy."""
+        return cls(
+            enabled=policy.enabled,
+            query_mode=policy.query_mode,
+            restrict_provider_domains=bool(policy.allowed_domains),
+            max_queries_per_invoke=policy.max_queries_per_run,
+            allowed_domains=policy.allowed_domains,
+            blocked_domains=policy.blocked_domains,
+            search_context_hint=policy.search_context_hint,
+        )
 
 
 class WebSearchResult(BaseModel):

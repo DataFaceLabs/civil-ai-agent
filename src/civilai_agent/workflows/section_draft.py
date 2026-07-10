@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from civilai_agent.models.context import WorkbenchContext
+from civilai_agent.workflows.assistant_chat import assistant_chat_prompt
 
 STRUCTURED_DRAFT_INSTRUCTION = """
 Return your final section draft as a single JSON object (no markdown code fence) with this shape:
@@ -49,6 +50,8 @@ def gap_analysis_prompt(context: WorkbenchContext) -> str:
 
 
 def build_user_prompt(context: WorkbenchContext) -> str:
+    if context.workflow and context.workflow.value == "assistant_chat":
+        return assistant_chat_prompt(context)
     if context.workflow and context.workflow.value == "section_draft":
         return section_draft_prompt(context)
     if context.workflow and context.workflow.value == "gap_analysis":
