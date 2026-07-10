@@ -51,7 +51,8 @@ class TavilyWebSearchProvider:
     ) -> tuple[WebSearchResult, ...]:
         api_key = settings().tavily_api_key.strip()
         if not api_key:
-            raise RuntimeError("CIVILAI_TAVILY_API_KEY is not set.")
+            logger.warning("CIVILAI_TAVILY_API_KEY is not set; skipping web search.")
+            return ()
         payload: dict[str, object] = {
             "api_key": api_key,
             "query": query,

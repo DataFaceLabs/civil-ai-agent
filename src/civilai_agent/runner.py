@@ -8,7 +8,9 @@ from typing import Any
 from civilai_agent.agents.civil_analyst import build_civil_analyst_agent
 from civilai_agent.config import settings
 from civilai_agent.guardrails.finalize import finalize_text_output
+from civilai_agent.guardrails.prefetch_search import derive_prefetch_queries
 from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS
+from civilai_agent.guardrails.web_search_models import WebSearchConfig
 from civilai_agent.models.context import (
     AgentArtifact,
     AgentResponse,
@@ -52,9 +54,37 @@ def extract_token_usage(result: Any) -> tuple[int | None, int | None]:
     )
 
 
+def _apply_search_policy(context: WorkbenchContext) -> WebSearchConfig:
+    """Reset the search session from the platform-resolved policy envelope."""
+    config = WebSearchConfig.from_search_run_policy(context.search_run_policy)
+    reset_search_session(config)
+    return config
+
+
+def _run_prefetch_searches(context: WorkbenchContext, config: WebSearchConfig) -> None:
+    """Execute deterministic prefetch queries before the agent tool loop."""
+    if not config.is_active():
+        return
+    policy = context.search_run_policy
+    queries = derive_prefetch_queries(
+        context.field_context,
+        search_context_hint=policy.search_context_hint,
+        max_queries=policy.max_queries_per_run,
+    )
+    if not queries:
+        return
+    session = get_search_session()
+    entity_id = context.entity_id or None
+    restrict = bool(policy.allowed_domains)
+    for query in queries:
+        session.search(query, entity_id=entity_id, restrict_domains=restrict)
+
+
 def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
     """Legacy Strands tool-loop path (no pipeline routing)."""
-    reset_search_session()
+    search_config = _apply_search_policy(context)
+    if not dry_run:
+        _run_prefetch_searches(context, search_config)
     user_prompt = build_user_prompt(context)
     started = time.perf_counter()
 
@@ -64,7 +94,12 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
             trace_summary=TraceSummary(tools_used=("dry_run",)),
         )
 
-    agent = build_civil_analyst_agent()
+    system_prompt = (
+        context.chat_system_prompt.strip()
+        if context.workflow == AgentWorkflow.ASSISTANT_CHAT and context.chat_system_prompt.strip()
+        else None
+    )
+    agent = build_civil_analyst_agent(system_prompt=system_prompt)
     raw = agent(user_prompt)
     message = _extract_message(raw)
     elapsed_ms = int((time.perf_counter() - started) * 1000)

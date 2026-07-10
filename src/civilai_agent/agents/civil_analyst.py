@@ -7,7 +7,6 @@ from strands.models.model import Model
 
 from civilai_agent.bedrock import build_bedrock_model
 from civilai_agent.config import settings
-from civilai_agent.openai_model import build_openai_model
 from civilai_agent.tools.facts import (
     get_provenance,
     get_section_facts,
@@ -35,14 +34,23 @@ def build_model(*, temperature: float = 0.2, model_id: str | None = None) -> Mod
     """Build the configured provider's Strands model (Bedrock default)."""
     provider = settings().model_provider.strip().lower()
     if provider == "openai":
+        from civilai_agent.openai_model import build_openai_model
+
         return build_openai_model(temperature=temperature, model_id=model_id)
     return build_bedrock_model(temperature=temperature, model_id=model_id)
 
 
-def build_civil_analyst_agent(*, temperature: float = 0.2) -> Agent:
+def build_civil_analyst_agent(
+    *, temperature: float = 0.2, system_prompt: str | None = None
+) -> Agent:
+    prompt = (
+        system_prompt.strip()
+        if system_prompt and system_prompt.strip()
+        else CIVIL_ANALYST_SYSTEM_PROMPT
+    )
     return Agent(
         model=build_model(temperature=temperature),
-        system_prompt=CIVIL_ANALYST_SYSTEM_PROMPT,
+        system_prompt=prompt,
         tools=[
             resolve_parcel,
             get_section_facts,

@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from civilai_agent.models.search_policy import SearchRunPolicy
+
 
 class AgentWorkflow(StrEnum):
     """Named workflows the workbench can request from the agent."""
@@ -15,6 +17,7 @@ class AgentWorkflow(StrEnum):
     SECTION_DRAFT = "section_draft"
     GAP_ANALYSIS = "gap_analysis"
     QA_REVIEW = "qa_review"
+    ASSISTANT_CHAT = "assistant_chat"
 
 
 class WorkbenchContext(BaseModel):
@@ -36,6 +39,14 @@ class WorkbenchContext(BaseModel):
     field_context: dict[str, str] = Field(default_factory=dict)
     tenant_id: str | None = None
     user_id: str | None = None
+    search_run_policy: SearchRunPolicy = Field(default_factory=SearchRunPolicy)
+    thread_memory: str = ""
+    section_body_plain: str = ""
+    tenant_name: str | None = None
+    project_name: str | None = None
+    property_address: str | None = None
+    chat_system_prompt: str = ""
+    chat_instructions: tuple[str, ...] = ()
 
 
 ArtifactType = Literal[

@@ -49,6 +49,27 @@ def test_section_draft_run_materializes_draft_artifact(mock_build: MagicMock) ->
 
 
 @patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_assistant_chat_skips_structured_parsing(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = "Plain chat response."
+    agent.model.config = {"model_id": "test-model"}
+    mock_build.return_value = agent
+
+    context = WorkbenchContext(
+        project_id="test",
+        request="What county is this parcel in?",
+        workflow=AgentWorkflow.ASSISTANT_CHAT,
+        chat_system_prompt="Chat system.",
+    )
+    response = run_agent(context)
+
+    assert response.artifacts == ()
+    assert response.structured_draft is None
+    assert response.message == "Plain chat response."
+    mock_build.assert_called_once_with(system_prompt="Chat system.")
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
 def test_non_section_draft_skips_structured_parsing(mock_build: MagicMock) -> None:
     agent = MagicMock()
     agent.return_value = _structured_json()
