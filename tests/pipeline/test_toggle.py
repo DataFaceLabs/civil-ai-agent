@@ -72,5 +72,6 @@ def test_pipeline_toggle_off_uses_legacy_dry_run(
     monkeypatch: pytest.MonkeyPatch, section_draft_context: WorkbenchContext
 ) -> None:
     monkeypatch.delenv("CIVILAI_DRAFT_PIPELINE", raising=False)
+    monkeypatch.delenv("CIVILAI_AGENT_HARDENING", raising=False)
     response = run_agent(section_draft_context, dry_run=True)
     assert "Would invoke agent with prompt" in response.message

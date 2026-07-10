@@ -45,6 +45,13 @@ IN_FLOODPLAIN_PHRASES = (
     "in the sfha",
 )
 
+OUTSIDE_EDWARDS_PHRASES = (
+    "outside the edwards aquifer",
+    "outside edwards aquifer",
+    "no additional permits are required for development activities related to the edwards",
+    "no tceq edwards aquifer",
+)
+
 _AVAILABILITY_RE = re.compile(
     r"\b(water|wastewater)\s+(service\s+)?is\s+available\b",
     re.IGNORECASE,
@@ -141,7 +148,40 @@ def _flood_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
     return None
 
 
+_OSSF_NOT_REQUIRED_PHRASES = (
+    "not required to install an on-site sewage facility",
+    "not required to install an ossf",
+    "ossf is not required",
+    "no ossf is required",
+    "on-site sewage facility (ossf) are not required",
+)
+
+_AUSTIN_ENERGY_PHRASES = ("austin energy",)
+
+
 def _utilities_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
+    branch = spec.branch_id or ""
+    if branch in ("utilities.ossf", "utilities.provider_distant") and any(
+        phrase in text for phrase in _OSSF_NOT_REQUIRED_PHRASES
+    ):
+        return (
+            f"Draft denies OSSF requirement while dispatch branch is {branch!r}."
+        )
+    for slot_key, phrases in (
+        ("power_provider", _AUSTIN_ENERGY_PHRASES),
+        ("water_provider", ()),
+        ("wastewater_provider", ()),
+    ):
+        slot_val = _slot_value(spec, slot_key)
+        if (
+            slot_val is None
+            and slot_key == "power_provider"
+            and any(phrase in text for phrase in phrases)
+        ):
+            return (
+                "Draft names Austin Energy but spec.slots['power_provider'] is unset "
+                "(CCN not confirmed)."
+            )
     if _has_capacity_fact(spec):
         return None
     for sentence in _SENTENCE_SPLIT.split(text):
@@ -157,6 +197,18 @@ def _utilities_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
     return None
 
 
+def _environmental_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
+    branch = spec.branch_id or ""
+    if branch == "environmental.edwards_outside":
+        return None
+    if any(phrase in text for phrase in OUTSIDE_EDWARDS_PHRASES):
+        return (
+            "Draft asserts outside the Edwards Aquifer but dispatch branch is "
+            f"{branch!r} (definitive outside requires TCEQ overlay confirmation)."
+        )
+    return None
+
+
 def fact_echo_warnings(spec: DraftSpec, output: SectionDraftOutput) -> tuple[str, ...]:
     """Negation-safe checks that draft prose contradicts governed spec slots."""
     text = _draft_blob(output)
@@ -164,6 +216,7 @@ def fact_echo_warnings(spec: DraftSpec, output: SectionDraftOutput) -> tuple[str
 
     checkers = {
         "zoning": _zoning_fact_echo_warning,
+        "environmental": _environmental_fact_echo_warning,
         "flood": _flood_fact_echo_warning,
         "utilities": _utilities_fact_echo_warning,
     }

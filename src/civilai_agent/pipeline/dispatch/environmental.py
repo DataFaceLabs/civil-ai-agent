@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 from civilai_agent.pipeline.fetch import SectionContext
+from civilai_agent.pipeline.jurisdiction import (
+    jurisdiction_context,
+    local_municipality_label,
+    requires_local_municipal_playbook,
+)
+from civilai_agent.pipeline.quality_flags import quality_flags
 from civilai_agent.pipeline.specs import DraftSpec, MissingInput
 
 _TRAVIS_FIPS = "48453"
@@ -67,6 +73,35 @@ def _float_value(raw: Any) -> float | None:
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _tceq_edwards_evidence(facts_payload: dict[str, Any]) -> bool:
+    """True when Edwards zone facts cite TCEQ overlay (not parcel-record inference alone)."""
+    evidence = facts_payload.get("evidence")
+    if not isinstance(evidence, dict):
+        return False
+    tceq_sources = frozenset(
+        {"tceq_edwards", "tceq_ea", "edwards_overlay", "tceq_edwards_aquifer"}
+    )
+    for field in ("wpap_type", "zone_type"):
+        entries = evidence.get(field)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("source_id") in tceq_sources:
+                return True
+    return False
+
+
+def _quality_flags(facts_payload: dict[str, Any]) -> frozenset[str]:
+    return quality_flags(facts_payload)
+
+
+def _edwards_zone_confirmed(facts_payload: dict[str, Any]) -> bool:
+    """Edwards outside/WPAP/CZP may only be stated definitively when TCEQ overlay ran."""
+    if "edwards_overlay_tceq" in _quality_flags(facts_payload):
+        return True
+    return _tceq_edwards_evidence(facts_payload)
 
 
 def _tcad_travis_from_evidence(facts_payload: dict[str, Any]) -> bool:
@@ -274,6 +309,42 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
     inner = _inner_facts(ctx.facts)
     facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
 
+    jctx = jurisdiction_context(ctx)
+    if requires_local_municipal_playbook(jctx):
+        city = local_municipality_label(jctx)
+        return DraftSpec(
+            entity_id=ctx.entity_id,
+            section_id="environmental",
+            branch_id="environmental.jurisdiction_pending",
+            tier=2,
+            slots={
+                "jurisdiction_primary": city,
+                "in_travis_county": "false",
+            },
+            facts=facts_payload,
+            determinations=[],
+            citations=[],
+            stems=[
+                f"Environmental review for {city} is governed by local municipal drainage "
+                "and water-quality ordinances — not City of Austin Edwards/CWQZ templates.",
+                "Do NOT apply Travis County §482.941 CWQZ, COA EHZ overlays, or COA "
+                "Environmental Criteria Manual unless jurisdiction facts establish Austin authority.",
+                "Do NOT assert Edwards Aquifer zone status from parcel-county inference alone.",
+                f"Recommend {city} / local AHJ stormwater, detention, and water-quality criteria.",
+            ],
+            missing_inputs=[
+                MissingInput(
+                    name="local_env_playbook",
+                    why_needed=(
+                        "Municipal environmental/drainage rules for this city are not yet "
+                        "modeled in governed dispatch."
+                    ),
+                    resolution="data-gap",
+                )
+            ],
+            searchable_gaps=[],
+        )
+
     wpap_type = _normalize_wpap(inner.get("wpap_type"))
     zone_type = _normalize_zone(inner.get("zone_type"))
     waterway_name = _normalize_text(inner.get("waterway_name"))
@@ -323,7 +394,7 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
             ]
         )
         missing_inputs.append(_EDWARDS_ZONE_GAP)
-    elif wpap_type == "WPAP" or zone_type in ("recharge", "transition"):
+    elif wpap_type == "WPAP" or zone_type in ("recharge", "recharge_verification", "transition"):
         branch_id = "environmental.edwards_wpap"
         tier = 2
         stems.extend(
@@ -346,12 +417,25 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
             ]
         )
     elif wpap_type == "OUTSIDE" or zone_type == "outside":
-        branch_id = "environmental.edwards_outside"
-        tier = 1
-        stems.append(
-            "Render the EA-outside verbatim stem: outside the Edwards Aquifer Transition Zone "
-            "(TCEQ); no additional Edwards permits; outside the Barton Springs zone."
-        )
+        if _edwards_zone_confirmed(facts_payload):
+            branch_id = "environmental.edwards_outside"
+            tier = 1
+            stems.append(
+                "Render the EA-outside verbatim stem: outside the Edwards Aquifer Transition Zone "
+                "(TCEQ); no additional Edwards permits; outside the Barton Springs zone."
+            )
+        else:
+            branch_id = "environmental.edwards_unclassified"
+            tier = 2
+            stems.extend(
+                [
+                    "Edwards Aquifer zone reads as outside in governed data but TCEQ overlay "
+                    "confirmation is absent — do NOT assert the site is outside the Recharge, "
+                    "Contributing, or Transition zones.",
+                    "Recommend TCEQ Edwards Aquifer viewer verification before any outside conclusion.",
+                ]
+            )
+            missing_inputs.append(_EDWARDS_ZONE_GAP)
     else:
         branch_id = "environmental.edwards_unclassified"
         tier = 2

@@ -62,6 +62,41 @@ def test_pending_branch_municipality_unresolved() -> None:
     assert spec.slots.get("impervious_regs") is None
 
 
+def test_municipality_unresolved_strips_coa_bootstrap() -> None:
+    """Maha Loop class: unresolved fringe city must not inherit COA LDC bootstrap prose."""
+    spec = dispatch_zoning(
+        _ctx(
+            facts={
+                "facts": {
+                    "zoning_code": None,
+                    "allowed_use_flags": (
+                        '["zoning_lookup_pending","manual_zoning_review_recommended"]'
+                    ),
+                    "impervious_regs": (
+                        "Impervious cover limits are governed by COA Land Development Code"
+                    ),
+                    "compatibility_stds": (
+                        "Compatibility standards governed by COA Land Development Code Subchapter C"
+                    ),
+                }
+            },
+            determinations=_zoning_det(
+                **{
+                    "jurisdiction.jurisdiction_primary": (
+                        "Travis County (municipality unresolved)"
+                    ),
+                    "jurisdiction.review_track": "county_baseline",
+                    "jurisdiction.in_etj": False,
+                }
+            ),
+        )
+    )
+    assert spec.branch_id == "zoning.municipality_pending"
+    assert spec.slots.get("impervious_regs") is None
+    assert spec.slots.get("compatibility_stds") is None
+    assert any("Do not cite City of Austin" in stem for stem in spec.stems)
+
+
 def test_pending_branch_without_municipality_unresolved() -> None:
     spec = dispatch_zoning(
         _ctx(
@@ -78,10 +113,34 @@ def test_pending_branch_without_municipality_unresolved() -> None:
     assert "manual review" in spec.stems[0].lower()
 
 
-def test_county_no_zoning_branch() -> None:
+def test_county_null_zoning_pending_not_non_zoning_assertion() -> None:
+    """H3: null zoning_code on county track must not assert non-zoning (Maha Loop class)."""
     spec = dispatch_zoning(
         _ctx(
             facts={"facts": {"zoning_code": None, "allowed_use_flags": "[]"}},
+            determinations=_zoning_det(
+                **{
+                    "jurisdiction.jurisdiction_primary": "Travis County",
+                    "jurisdiction.review_track": "county_baseline",
+                    "jurisdiction.in_etj": False,
+                }
+            ),
+        )
+    )
+    assert spec.branch_id == "zoning.pending"
+    assert spec.tier == 2
+    assert "Do not assert" in spec.stems[1]
+
+
+def test_county_no_zoning_branch_when_explicitly_confirmed() -> None:
+    spec = dispatch_zoning(
+        _ctx(
+            facts={
+                "facts": {
+                    "zoning_code": None,
+                    "allowed_use_flags": '["county_non_zoning_confirmed"]',
+                }
+            },
             determinations=_zoning_det(
                 **{
                     "jurisdiction.jurisdiction_primary": "Travis County",

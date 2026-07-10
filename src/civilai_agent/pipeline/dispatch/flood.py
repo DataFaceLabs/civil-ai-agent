@@ -6,6 +6,11 @@ import re
 from typing import Any
 
 from civilai_agent.pipeline.fetch import SectionContext
+from civilai_agent.pipeline.jurisdiction import (
+    jurisdiction_context,
+    local_municipality_label,
+    requires_local_municipal_playbook,
+)
 from civilai_agent.pipeline.specs import DraftSpec, MissingInput
 
 _SFHA_ZONES = frozenset({"A", "AE", "AO", "AH", "VE", "AR", "A99", "V"})
@@ -167,11 +172,45 @@ def _panel_data_gaps(panel_id: str | None, effective_date: str | None) -> list[M
 def dispatch_flood(ctx: SectionContext) -> DraftSpec:
     """Map governed flood facts to a DraftSpec branch."""
     inner = _inner_facts(ctx.facts)
+    facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
+
+    jctx = jurisdiction_context(ctx)
+    if requires_local_municipal_playbook(jctx):
+        city = local_municipality_label(jctx)
+        return DraftSpec(
+            entity_id=ctx.entity_id,
+            section_id="flood",
+            branch_id="flood.jurisdiction_pending",
+            tier=2,
+            slots={"jurisdiction_primary": city, "flood_zone": None},
+            facts=facts_payload,
+            determinations=[],
+            citations=[],
+            stems=[
+                f"Drainage and floodplain review for {city} is governed by local municipal "
+                "ordinances (Rational Method, Atlas 14, no-increase criteria) — not FEMA-only classification.",
+                "Do NOT treat FEMA Zone X as 'no floodplain impact' when local drainage ordinances "
+                "may require study, detention, or freeboard under city code.",
+                f"Recommend {city} drainage criteria and storm event requirements (2-yr through 100-yr).",
+            ],
+            missing_inputs=[
+                MissingInput(
+                    name="local_flood_playbook",
+                    why_needed=(
+                        "Municipal drainage/floodplain rules for this city are not yet modeled "
+                        "in governed dispatch."
+                    ),
+                    resolution="data-gap",
+                ),
+                _PROPOSED_WORK_GAP,
+            ],
+            searchable_gaps=[],
+        )
+
     zone = _normalize_zone(inner.get("fema_zone"))
     panel_id = _normalize_code(inner.get("panel_id"))
     effective_date = _normalize_code(inner.get("effective_date"))
     floodway = _floodway_value(inner)
-    facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
     county = _county_from_panel(panel_id) or _county_from_evidence(facts_payload)
 
     slots: dict[str, str | None] = {

@@ -17,7 +17,13 @@ def test_public_main_branch_when_centralized_sewer() -> None:
                     "water_provider": "Austin Water",
                     "wastewater_provider": "Austin Water Wastewater",
                     "ww_main_distance_ft": 50,
-                }
+                },
+                "quality": {
+                    "flags": [
+                        "water_ccn_overlay_observed",
+                        "wastewater_ccn_overlay_observed",
+                    ]
+                },
             },
         )
     )
@@ -97,7 +103,8 @@ def test_power_provider_stem_prevents_austin_energy_default() -> None:
                 "facts": {
                     "ossf_required": True,
                     "power_provider": "PEDERNALES ELECTRIC COOP, INC",
-                }
+                },
+                "quality": {"flags": ["electric_ccn_overlay_observed"]},
             },
         )
     )
@@ -136,3 +143,40 @@ def test_ossf_lot_size_determination_wired_when_ossf_branch() -> None:
     )
     assert any("OSSF lot-size feasibility" in stem for stem in spec.stems)
     assert any("0.85 ac" in stem for stem in spec.stems)
+
+
+def test_unconfirmed_ccn_clears_provider_slots() -> None:
+    spec = dispatch_utilities(
+        SectionContext(
+            entity_id="ent-1",
+            section_id="utilities",
+            facts={
+                "facts": {
+                    "ossf_required": True,
+                    "power_provider": "AUSTIN ENERGY",
+                },
+                "quality": {"flags": ["electric_baseline_inference"]},
+            },
+        )
+    )
+    assert spec.slots["power_provider"] is None
+    assert any("not name a provider" in stem.lower() for stem in spec.stems)
+
+
+def test_distant_main_blocks_ossf_not_required_claim() -> None:
+    spec = dispatch_utilities(
+        SectionContext(
+            entity_id="ent-1",
+            section_id="utilities",
+            facts={
+                "facts": {
+                    "ossf_required": False,
+                    "wastewater_provider": "Austin Water Wastewater",
+                    "ww_main_distance_ft": 1137,
+                },
+                "quality": {"flags": ["wastewater_ccn_overlay_observed"]},
+            },
+        )
+    )
+    assert spec.branch_id == "utilities.provider_distant"
+    assert any("Do NOT state that centralized sewer is available" in stem for stem in spec.stems)

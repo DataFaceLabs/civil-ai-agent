@@ -25,7 +25,10 @@ class AgentSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CIVILAI_", extra="ignore")
 
     draft_pipeline: str = ""
-    """CIVILAI_DRAFT_PIPELINE — "1" routes section drafts through the pipeline."""
+    """CIVILAI_DRAFT_PIPELINE — "1" routes section drafts through the full pipeline."""
+
+    agent_hardening: str = ""
+    """CIVILAI_AGENT_HARDENING — "1" gates + dispatch/render for zoning/flood; legacy for others."""
 
     model_provider: str = "bedrock"
     """CIVILAI_MODEL_PROVIDER — "bedrock" (default) or "openai"."""
@@ -52,6 +55,11 @@ class AgentSettings(BaseSettings):
     def use_draft_pipeline(self) -> bool:
         """Whether section drafts route through the deterministic pipeline."""
         return self.draft_pipeline.strip() == "1"
+
+    @property
+    def use_agent_hardening(self) -> bool:
+        """Whether section drafts use eval hardening (gates + zoning/flood dispatch)."""
+        return self.agent_hardening.strip() == "1"
 
 
 def settings() -> AgentSettings:
