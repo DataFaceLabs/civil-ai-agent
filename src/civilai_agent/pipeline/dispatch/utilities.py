@@ -263,9 +263,7 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     if water_provider and ccn_provider_confirmed(facts_payload, "water"):
         stems.append(f"Potable water provider from governed CCN facts: {water_provider}.")
     elif water_provider:
-        stems.append(
-            "Potable water provider is pending CCN confirmation — do NOT name a provider."
-        )
+        stems.append("Potable water provider is pending CCN confirmation — do NOT name a provider.")
         missing_inputs.append(_PROVIDER_UNCONFIRMED_GAP)
     else:
         missing_inputs.append(

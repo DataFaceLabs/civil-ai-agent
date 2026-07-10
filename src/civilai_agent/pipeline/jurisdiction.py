@@ -73,7 +73,9 @@ def _is_city_of_austin(jctx: dict[str, Any]) -> bool:
 def _is_travis_unincorporated(jctx: dict[str, Any]) -> bool:
     juris = (jctx.get("jurisdiction_primary") or "").lower()
     in_city = jctx.get("in_city_limits")
-    return "travis county" in juris and in_city is not True and "municipality unresolved" not in juris
+    return (
+        "travis county" in juris and in_city is not True and "municipality unresolved" not in juris
+    )
 
 
 def requires_local_municipal_playbook(jctx: dict[str, Any]) -> bool:

@@ -62,7 +62,9 @@ def test_hardening_routes_zoning_to_pipeline(
     monkeypatch.setenv("CIVILAI_AGENT_HARDENING", "1")
     mock_pipeline = MagicMock(return_value=MagicMock(message="zoning draft"))
     mock_fetch = MagicMock(
-        return_value=MagicMock(entity_id="ent-1", section_id="zoning", facts={"facts": {"zoning_code": "CS"}})
+        return_value=MagicMock(
+            entity_id="ent-1", section_id="zoning", facts={"facts": {"zoning_code": "CS"}}
+        )
     )
     mock_gate = MagicMock(return_value=None)
     with (

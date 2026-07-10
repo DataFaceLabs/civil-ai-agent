@@ -32,9 +32,7 @@ def missing_entity_gate(entity_id: str | None, section_id: str) -> AgentResponse
         f"The {title} section could not be drafted because the parcel is not resolved "
         "(no entity_id). Resolve the address or parcel ID before requesting a section draft."
     )
-    data_gaps = (
-        "Parcel not resolved — entity_id is required for governed section facts.",
-    )
+    data_gaps = ("Parcel not resolved — entity_id is required for governed section facts.",)
     structured = SectionDraftOutput(
         suggested_language=suggested,
         caveats=(),

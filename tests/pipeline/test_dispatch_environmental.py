@@ -220,11 +220,11 @@ def test_joseph_class_composite_watershed_cwqz_ehz() -> None:
     spec = dispatch_environmental(
         _ctx(
             facts={
-                    "facts": {
-                        "wpap_type": "outside",
-                        "zone_type": "outside",
-                        "source_fips": "48453",
-                        "cwqz_setback_ft": None,
+                "facts": {
+                    "wpap_type": "outside",
+                    "zone_type": "outside",
+                    "source_fips": "48453",
+                    "cwqz_setback_ft": None,
                     "waterway_name": None,
                     "erosion_hazard": (
                         "Erosion hazard zone classification pending COA Erosion Hazard Zone "

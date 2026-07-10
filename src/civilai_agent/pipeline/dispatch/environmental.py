@@ -80,9 +80,7 @@ def _tceq_edwards_evidence(facts_payload: dict[str, Any]) -> bool:
     evidence = facts_payload.get("evidence")
     if not isinstance(evidence, dict):
         return False
-    tceq_sources = frozenset(
-        {"tceq_edwards", "tceq_ea", "edwards_overlay", "tceq_edwards_aquifer"}
-    )
+    tceq_sources = frozenset({"tceq_edwards", "tceq_ea", "edwards_overlay", "tceq_edwards_aquifer"})
     for field in ("wpap_type", "zone_type"):
         entries = evidence.get(field)
         if not isinstance(entries, list):

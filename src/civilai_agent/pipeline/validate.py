@@ -164,9 +164,7 @@ def _utilities_fact_echo_warning(spec: DraftSpec, text: str) -> str | None:
     if branch in ("utilities.ossf", "utilities.provider_distant") and any(
         phrase in text for phrase in _OSSF_NOT_REQUIRED_PHRASES
     ):
-        return (
-            f"Draft denies OSSF requirement while dispatch branch is {branch!r}."
-        )
+        return f"Draft denies OSSF requirement while dispatch branch is {branch!r}."
     for slot_key, phrases in (
         ("power_provider", _AUSTIN_ENERGY_PHRASES),
         ("water_provider", ()),
