@@ -20,12 +20,17 @@ def _zoning_det(**inputs: object) -> dict[str, object]:
     }
 
 
-def test_county_template_renders_stem_b() -> None:
+def test_county_confirmed_non_zoning_template_renders_stem_b() -> None:
     spec = dispatch_zoning(
         SectionContext(
             entity_id="ent-hudson",
             section_id="zoning",
-            facts={"facts": {"zoning_code": None, "allowed_use_flags": "[]"}},
+            facts={
+                "facts": {
+                    "zoning_code": None,
+                    "allowed_use_flags": '["county_non_zoning_confirmed"]',
+                }
+            },
             determinations=_zoning_det(
                 **{
                     "jurisdiction.jurisdiction_primary": "Travis County",
@@ -34,6 +39,7 @@ def test_county_template_renders_stem_b() -> None:
             ),
         )
     )
+    assert spec.branch_id == "zoning.county_no_zoning"
     output = render_zoning_tier0(spec)
     assert "Travis County" in output.suggested_language
     assert "not subject to zoning regulations" in output.suggested_language
