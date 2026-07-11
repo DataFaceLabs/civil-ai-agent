@@ -34,11 +34,38 @@ def _context(section_id: str = "zoning") -> WorkbenchContext:
     )
 
 
-def test_zoning_county_uses_template_path() -> None:
+def test_county_null_zoning_uses_pending_not_non_zoning_template() -> None:
     ctx = SectionContext(
         entity_id="ent-1",
         section_id="zoning",
         facts={"facts": {"zoning_code": None, "allowed_use_flags": "[]"}},
+        determinations=_zoning_det(
+            **{
+                "jurisdiction.jurisdiction_primary": "Travis County",
+                "jurisdiction.review_track": "county_baseline",
+            }
+        ),
+    )
+
+    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=ctx):
+        response = run_section_draft(_context(), dry_run=True)
+
+    assert response.artifacts
+    assert response.artifacts[0].metadata["pipeline_path"] == "render"
+    assert response.artifacts[0].metadata["branch_id"] == "zoning.pending"
+    assert "not subject to zoning regulations" not in response.message
+
+
+def test_county_confirmed_non_zoning_uses_template_path() -> None:
+    ctx = SectionContext(
+        entity_id="ent-1",
+        section_id="zoning",
+        facts={
+            "facts": {
+                "zoning_code": None,
+                "allowed_use_flags": '["county_non_zoning_confirmed"]',
+            }
+        },
         determinations=_zoning_det(
             **{
                 "jurisdiction.jurisdiction_primary": "Travis County",

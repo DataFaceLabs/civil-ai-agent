@@ -23,6 +23,49 @@ def _section_title(section_id: str) -> str:
     return _SECTION_TITLES.get(section_id, section_id.replace("-", " ").title())
 
 
+def missing_entity_gate(entity_id: str | None, section_id: str) -> AgentResponse | None:
+    """Block drafting when the workbench context has no resolved entity."""
+    if entity_id:
+        return None
+    title = _section_title(section_id)
+    suggested = (
+        f"The {title} section could not be drafted because the parcel is not resolved "
+        "(no entity_id). Resolve the address or parcel ID before requesting a section draft."
+    )
+    data_gaps = ("Parcel not resolved — entity_id is required for governed section facts.",)
+    structured = SectionDraftOutput(
+        suggested_language=suggested,
+        caveats=(),
+        verification_steps=(
+            "Resolve the project parcel via address or parcel ID.",
+            "Confirm the parcel exists in the ingested CAD snapshot for this county.",
+        ),
+        data_gaps=data_gaps,
+        sources=(),
+    )
+    artifact = AgentArtifact(
+        type="draft_section",
+        title=f"Draft — {section_id}",
+        status="blocked",
+        section_id=section_id,
+        claims=(Claim(text=suggested),),
+        data_gaps=structured.data_gaps,
+        body=suggested,
+        metadata={
+            "caveats": [],
+            "verification_steps": list(structured.verification_steps),
+            "pipeline_path": "gate_missing_entity",
+        },
+    )
+    return AgentResponse(
+        message=suggested,
+        artifacts=(artifact,),
+        trace_summary=TraceSummary(tools_used=("hardening_gate_missing_entity",)),
+        structured_draft=structured.model_dump(),
+        guardrail_warnings=(),
+    )
+
+
 def zero_fact_gate(ctx: SectionContext) -> AgentResponse | None:
     """Return a complete response when governed facts are absent; else None."""
     if facts_nonempty(ctx.facts):

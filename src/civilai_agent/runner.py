@@ -168,4 +168,9 @@ def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentRespo
 
         return run_section_draft(context, dry_run=dry_run)
 
+    if settings().use_agent_hardening and context.workflow == AgentWorkflow.SECTION_DRAFT:
+        from civilai_agent.hardening.run import run_hardened_section_draft
+
+        return run_hardened_section_draft(context, dry_run=dry_run)
+
     return run_legacy_agent(context, dry_run=dry_run)

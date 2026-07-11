@@ -3,8 +3,16 @@
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from civilai_agent.models.context import AgentWorkflow, WorkbenchContext
 from civilai_agent.runner import run_agent
+
+
+@pytest.fixture(autouse=True)
+def _legacy_agent_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CIVILAI_DRAFT_PIPELINE", raising=False)
+    monkeypatch.delenv("CIVILAI_AGENT_HARDENING", raising=False)
 
 
 def _context() -> WorkbenchContext:

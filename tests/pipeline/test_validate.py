@@ -97,6 +97,18 @@ def test_utilities_warns_availability_without_coverage_qualifier() -> None:
     assert "coverage qualifier" in warnings[0]
 
 
+def test_utilities_warns_when_ossf_branch_but_draft_denies_ossf() -> None:
+    spec = _spec(
+        section_id="utilities",
+        branch_id="utilities.provider_distant",
+        slots={"ww_main_distance_ft": "1137"},
+    )
+    output = _output("The property is not required to install an on-site sewage facility (OSSF).")
+    warnings = fact_echo_warnings(spec, output)
+    assert len(warnings) == 1
+    assert "OSSF" in warnings[0]
+
+
 def test_utilities_no_warning_with_coverage_language() -> None:
     spec = _spec(
         section_id="utilities",
@@ -120,6 +132,21 @@ def test_utilities_no_warning_when_capacity_fact_present() -> None:
 
 
 def test_non_matching_section_returns_no_warnings() -> None:
-    spec = _spec(section_id="environmental", branch_id="env.outside")
+    spec = _spec(section_id="topography", branch_id="topo.flat")
     output = _output("The parcel is outside the Edwards Aquifer recharge zone.")
     assert fact_echo_warnings(spec, output) == ()
+
+
+def test_environmental_warns_when_unclassified_branch_asserts_outside() -> None:
+    spec = _spec(
+        section_id="environmental",
+        branch_id="environmental.edwards_unclassified",
+        slots={"wpap_type": "outside", "zone_type": "outside"},
+    )
+    output = _output(
+        "This site is located outside the Edwards Aquifer Transition Zone; "
+        "no additional permits are required."
+    )
+    warnings = fact_echo_warnings(spec, output)
+    assert len(warnings) == 1
+    assert "Edwards Aquifer" in warnings[0]

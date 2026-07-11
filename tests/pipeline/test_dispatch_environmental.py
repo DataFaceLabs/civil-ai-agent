@@ -23,6 +23,9 @@ def _ctx(
     )
 
 
+_EDWARDS_TCEQ_QUALITY = {"quality": {"flags": ["edwards_overlay_tceq"]}}
+
+
 def test_wpap_recharge_branch_tier2() -> None:
     spec = dispatch_environmental(
         _ctx(facts={"facts": {"wpap_type": "WPAP", "zone_type": "recharge"}})
@@ -53,7 +56,8 @@ def test_outside_branch_tier1_with_cwqz() -> None:
                     "drainage_area_acres": 4237.5,
                     "cwqz_setback_ft": 300,
                     "source_fips": "48453",
-                }
+                },
+                **_EDWARDS_TCEQ_QUALITY,
             }
         )
     )
@@ -80,6 +84,42 @@ def test_null_wpap_and_zone_is_unclassified() -> None:
     )
 
 
+def test_outside_without_tceq_overlay_is_unclassified_not_tier1() -> None:
+    """Bullick-class: inferred outside without edwards_overlay_tceq must not tier-1 assert."""
+    spec = dispatch_environmental(
+        _ctx(
+            facts={
+                "facts": {
+                    "wpap_type": "outside",
+                    "zone_type": "outside",
+                    "source_fips": "48453",
+                },
+                "quality": {"flags": ["terrain_3dep_complete", "waterway_overlay_nhd"]},
+                "evidence": {
+                    "zone_type": [
+                        {
+                            "source_id": "tcad",
+                            "source_name": "County Appraisal District parcel record",
+                        }
+                    ]
+                },
+            }
+        )
+    )
+    assert spec.branch_id == "environmental.edwards_unclassified"
+    assert spec.tier == 2
+    assert any("do NOT assert" in stem for stem in spec.stems)
+    assert any(m.name == "edwards_aquifer_zone" for m in spec.missing_inputs)
+
+
+def test_recharge_verification_maps_to_wpap() -> None:
+    spec = dispatch_environmental(
+        _ctx(facts={"facts": {"zone_type": "recharge_verification", "wpap_type": "WPAP"}})
+    )
+    assert spec.branch_id == "environmental.edwards_wpap"
+    assert spec.tier == 2
+
+
 def test_cwqz_null_outside_travis_is_not_gap() -> None:
     spec = dispatch_environmental(
         _ctx(
@@ -88,7 +128,8 @@ def test_cwqz_null_outside_travis_is_not_gap() -> None:
                     "wpap_type": "outside",
                     "cwqz_setback_ft": None,
                     "source_fips": "48491",
-                }
+                },
+                **_EDWARDS_TCEQ_QUALITY,
             }
         )
     )
@@ -127,7 +168,8 @@ def test_tier1_template_renders_outside_stem_and_cwqz() -> None:
                     "classification": "major",
                     "drainage_area_acres": 1536,
                     "source_fips": "48453",
-                }
+                },
+                **_EDWARDS_TCEQ_QUALITY,
             }
         )
     )
@@ -155,7 +197,13 @@ def test_tcad_evidence_infers_travis_for_cwqz_without_source_fips() -> None:
                             "source_name": "County Appraisal District parcel record",
                             "citation_url": "https://traviscad.org/propertysearch",
                         }
-                    ]
+                    ],
+                    "zone_type": [
+                        {
+                            "source_id": "tceq_edwards",
+                            "source_name": "TCEQ Edwards Aquifer viewer",
+                        }
+                    ],
                 },
             }
         )
@@ -175,6 +223,7 @@ def test_joseph_class_composite_watershed_cwqz_ehz() -> None:
                 "facts": {
                     "wpap_type": "outside",
                     "zone_type": "outside",
+                    "source_fips": "48453",
                     "cwqz_setback_ft": None,
                     "waterway_name": None,
                     "erosion_hazard": (
@@ -185,9 +234,8 @@ def test_joseph_class_composite_watershed_cwqz_ehz() -> None:
                 "evidence": {
                     "zone_type": [
                         {
-                            "source_id": "tcad",
-                            "source_name": "County Appraisal District parcel record",
-                            "citation_url": "https://traviscad.org/propertysearch",
+                            "source_id": "tceq_edwards",
+                            "source_name": "TCEQ Edwards Aquifer viewer",
                         }
                     ]
                 },
@@ -229,7 +277,8 @@ def test_cwqz_setback_suppresses_adjacent_waterway_contradiction() -> None:
                     "drainage_area_acres": 8261,
                     "cwqz_setback_ft": 300,
                     "source_fips": "48453",
-                }
+                },
+                **_EDWARDS_TCEQ_QUALITY,
             },
             determinations={
                 "determinations": [

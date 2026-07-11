@@ -101,9 +101,9 @@ def _strip_misleading_austin_bootstrap(
     inner: dict[str, Any],
     jctx: dict[str, Any],
 ) -> None:
-    """Drop Travis/COA bootstrap prose when jurisdiction facts name another county."""
+    """Drop Travis/COA bootstrap prose when jurisdiction facts name another county or are unresolved."""
     juris = (jctx.get("jurisdiction_primary") or "").lower()
-    if "city of austin" in juris or juris.startswith("travis"):
+    if "city of austin" in juris and "municipality unresolved" not in juris:
         return
     for key in ("impervious_regs", "compatibility_stds"):
         val = slots.get(key) or inner.get(key)
@@ -169,6 +169,15 @@ def _is_county_jurisdiction(jctx: dict[str, Any]) -> bool:
     juris = jctx.get("jurisdiction_primary") or ""
     lowered = juris.lower()
     return "county" in lowered and not lowered.startswith("city of")
+
+
+def _county_non_zoning_confirmed(inner: dict[str, Any]) -> bool:
+    """True only when governed data explicitly marks a confirmed non-zoning county."""
+    flags = _parse_flags(inner.get("allowed_use_flags"))
+    if "county_non_zoning_confirmed" in flags:
+        return True
+    raw = inner.get("non_zoning_county")
+    return raw is True or (isinstance(raw, str) and raw.strip().lower() in {"true", "1", "yes"})
 
 
 def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -298,10 +307,21 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
         city = _etj_city_label(juris or "the city")
         stems = [STEM_C_ETJ.format(city=city)]
     elif _is_county_jurisdiction(jctx):
-        branch_id = "zoning.county_no_zoning"
-        tier = 0
-        county = _county_label(juris or "the")
-        stems = [STEM_B_COUNTY.format(county=county)]
+        if not zoning_code and not _county_non_zoning_confirmed(inner):
+            branch_id = "zoning.pending"
+            tier = 2
+            stems = [
+                "State that the zoning district could not be confirmed from governed data alone.",
+                "Do not assert that the county is non-zoning or that no municipal zoning applies "
+                "without a verified zoning lookup.",
+                "Recommend municipal and county planning verification before asserting allowed uses "
+                "or rezoning requirements.",
+            ]
+        else:
+            branch_id = "zoning.county_no_zoning"
+            tier = 0
+            county = _county_label(juris or "the")
+            stems = [STEM_B_COUNTY.format(county=county)]
     else:
         branch_id = "zoning.pending"
         tier = 2

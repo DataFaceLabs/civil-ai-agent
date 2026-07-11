@@ -5,7 +5,19 @@ from __future__ import annotations
 from typing import Any
 
 from civilai_agent.pipeline.fetch import SectionContext
+from civilai_agent.pipeline.quality_flags import ccn_provider_confirmed
 from civilai_agent.pipeline.specs import DraftSpec, MissingInput
+
+_PROVIDER_UNCONFIRMED_GAP = MissingInput(
+    name="utility_provider_ccn",
+    why_needed=(
+        "Utility provider identity requires CCN overlay confirmation; baseline inference "
+        "alone is not sufficient to name a provider."
+    ),
+    resolution="data-gap",
+)
+
+_WW_DISTANCE_OSSF_THRESHOLD_FT = 500.0
 
 _COVERAGE_DISCLAIMER_STEM = (
     "Service territory or CCN coverage indicates the provider could serve the area; "
@@ -123,6 +135,24 @@ def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any
     return citations
 
 
+def _sanitize_provider_slots(
+    slots: dict[str, str | None],
+    facts_payload: dict[str, Any],
+) -> list[MissingInput]:
+    """Drop provider names from render slots when CCN overlay did not confirm them."""
+    gaps: list[MissingInput] = []
+    mapping = (
+        ("water_provider", "water"),
+        ("wastewater_provider", "wastewater"),
+        ("power_provider", "electric"),
+    )
+    for slot_key, kind in mapping:
+        if slots.get(slot_key) and not ccn_provider_confirmed(facts_payload, kind):
+            slots[slot_key] = None
+            gaps.append(_PROVIDER_UNCONFIRMED_GAP)
+    return gaps
+
+
 def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     """Map governed utilities facts to a DraftSpec branch."""
     inner = _inner_facts(ctx.facts)
@@ -175,6 +205,22 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
                     resolution="records",
                 )
             )
+    elif (
+        wastewater_provider
+        and ww_distance is not None
+        and ww_distance >= _WW_DISTANCE_OSSF_THRESHOLD_FT
+    ):
+        branch_id = "utilities.provider_distant"
+        stems.extend(
+            [
+                f"Wastewater main is approximately {ww_distance:.0f} ft from the property.",
+                "Do NOT state that centralized sewer is available or that OSSF is not required "
+                "without provider SER/will-serve analysis.",
+                "Discuss OSSF/septic as the likely path when main distance is prohibitive; "
+                "SER feasibility is not established from distance alone.",
+            ]
+        )
+        missing_inputs.append(_WW_DISTANCE_GAP)
     elif wastewater_provider and ww_distance is not None and ww_distance > 100:
         branch_id = "utilities.provider_distant"
         stems.extend(
@@ -188,12 +234,17 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         branch_id = "utilities.public_main"
         stems.extend(
             [
-                f"State centralized wastewater provider is {wastewater_provider}.",
+                "Centralized wastewater may apply when provider and main distance are confirmed.",
+                "Do NOT state OSSF is not required when main distance is unconfirmed.",
                 "Describe connection standards only when governed facts support them.",
             ]
         )
         if ww_distance is None:
             missing_inputs.append(_WW_DISTANCE_GAP)
+            stems.append(
+                "Distance to nearest wastewater main is not documented — do NOT assert "
+                "centralized sewer feasibility or that OSSF is not required."
+            )
     elif wastewater_provider:
         branch_id = "utilities.public_main"
         stems.append(
@@ -209,8 +260,11 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
             ]
         )
 
-    if water_provider:
-        stems.append(f"Potable water provider from governed facts: {water_provider}.")
+    if water_provider and ccn_provider_confirmed(facts_payload, "water"):
+        stems.append(f"Potable water provider from governed CCN facts: {water_provider}.")
+    elif water_provider:
+        stems.append("Potable water provider is pending CCN confirmation — do NOT name a provider.")
+        missing_inputs.append(_PROVIDER_UNCONFIRMED_GAP)
     else:
         missing_inputs.append(
             MissingInput(
@@ -220,11 +274,17 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
             )
         )
 
-    if power_provider:
+    if power_provider and ccn_provider_confirmed(facts_payload, "electric"):
         stems.append(
-            f"Electric provider from governed facts: {power_provider}. "
+            f"Electric provider from governed CCN facts: {power_provider}. "
             "Do not default to Austin Energy unless governed facts confirm it."
         )
+    elif power_provider:
+        stems.append(
+            "Electric provider is pending CCN confirmation — do NOT name a provider "
+            "(do not default to Austin Energy)."
+        )
+        missing_inputs.append(_PROVIDER_UNCONFIRMED_GAP)
     else:
         missing_inputs.append(
             MissingInput(
@@ -252,6 +312,9 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
                 resolution="records",
             )
         )
+
+    ccn_gaps = _sanitize_provider_slots(slots, facts_payload)
+    missing_inputs.extend(g for g in ccn_gaps if g not in missing_inputs)
 
     return DraftSpec(
         entity_id=ctx.entity_id,
