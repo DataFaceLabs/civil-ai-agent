@@ -35,11 +35,18 @@ class WorkbenchContext(BaseModel):
     proposed_use: str | None = None
     user_role: str = "analyst"
     request: str = Field(min_length=1)
+    client_request: str = ""
     workflow: AgentWorkflow | None = None
     field_context: dict[str, str] = Field(default_factory=dict)
     tenant_id: str | None = None
     user_id: str | None = None
     search_run_policy: SearchRunPolicy = Field(default_factory=SearchRunPolicy)
+    # Canonical Prompt Lab resolution supplied by the platform for section drafts.
+    system_prompt: str = ""
+    model_id: str | None = None
+    temperature: float | None = None
+    guardrails: dict[str, Any] = Field(default_factory=dict)
+    prompt_config: dict[str, Any] = Field(default_factory=dict)
     thread_memory: str = ""
     section_body_plain: str = ""
     tenant_name: str | None = None
