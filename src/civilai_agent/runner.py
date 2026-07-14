@@ -9,7 +9,7 @@ from civilai_agent.agents.civil_analyst import build_civil_analyst_agent
 from civilai_agent.config import settings
 from civilai_agent.guardrails.finalize import finalize_text_output
 from civilai_agent.guardrails.prefetch_search import derive_prefetch_queries
-from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS
+from civilai_agent.guardrails.shared import DEFAULT_GUARDRAILS, GuardrailConfig
 from civilai_agent.guardrails.web_search_models import WebSearchConfig
 from civilai_agent.models.context import (
     AgentArtifact,
@@ -80,6 +80,20 @@ def _run_prefetch_searches(context: WorkbenchContext, config: WebSearchConfig) -
         session.search(query, entity_id=entity_id, restrict_domains=restrict)
 
 
+def _resolved_guardrails(context: WorkbenchContext) -> GuardrailConfig:
+    raw = context.guardrails
+    if not raw:
+        return DEFAULT_GUARDRAILS
+    return GuardrailConfig(
+        forbidden_phrases=tuple(str(item) for item in raw.get("forbiddenPhrases") or ()),
+        required_disclaimers=tuple(str(item) for item in raw.get("requiredDisclaimers") or ()),
+        disclaimer_sections=frozenset({context.active_section_id})
+        if context.active_section_id
+        else None,
+        enforce=bool(raw.get("enforceGuardrails", False)),
+    )
+
+
 def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
     """Legacy Strands tool-loop path (no pipeline routing)."""
     search_config = _apply_search_policy(context)
@@ -94,12 +108,16 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
             trace_summary=TraceSummary(tools_used=("dry_run",)),
         )
 
-    system_prompt = (
+    system_prompt = context.system_prompt.strip() or (
         context.chat_system_prompt.strip()
         if context.workflow == AgentWorkflow.ASSISTANT_CHAT and context.chat_system_prompt.strip()
         else None
     )
-    agent = build_civil_analyst_agent(system_prompt=system_prompt)
+    agent = build_civil_analyst_agent(
+        system_prompt=system_prompt,
+        model_id=context.model_id,
+        temperature=context.temperature if context.temperature is not None else 0.2,
+    )
     raw = agent(user_prompt)
     message = _extract_message(raw)
     elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -110,7 +128,7 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
     web_search_trace = session.get_trace()
     display, structured, warnings = finalize_text_output(
         text=message,
-        guardrails=DEFAULT_GUARDRAILS,
+        guardrails=_resolved_guardrails(context),
         web_search_trace=web_search_trace if web_search_trace else None,
         structured_mode=use_structured,
         section_id=context.active_section_id,

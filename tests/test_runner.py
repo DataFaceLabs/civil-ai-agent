@@ -74,7 +74,39 @@ def test_assistant_chat_skips_structured_parsing(mock_build: MagicMock) -> None:
     assert response.artifacts == ()
     assert response.structured_draft is None
     assert response.message == "Plain chat response."
-    mock_build.assert_called_once_with(system_prompt="Chat system.")
+    mock_build.assert_called_once_with(
+        system_prompt="Chat system.",
+        model_id=None,
+        temperature=0.2,
+    )
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_section_draft_consumes_platform_resolved_prompt_config(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    agent.model.config = {"model_id": "configured-model"}
+    mock_build.return_value = agent
+
+    context = _context().model_copy(
+        update={
+            "system_prompt": "Tenant section system prompt.",
+            "model_id": "configured-model",
+            "temperature": 0.1,
+            "guardrails": {
+                "forbiddenPhrases": ["guaranteed approval"],
+                "requiredDisclaimers": [],
+                "enforceGuardrails": False,
+            },
+        }
+    )
+    run_agent(context)
+
+    mock_build.assert_called_once_with(
+        system_prompt="Tenant section system prompt.",
+        model_id="configured-model",
+        temperature=0.1,
+    )
 
 
 @patch("civilai_agent.runner.build_civil_analyst_agent")

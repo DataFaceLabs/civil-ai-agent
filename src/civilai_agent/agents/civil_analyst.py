@@ -41,7 +41,10 @@ def build_model(*, temperature: float = 0.2, model_id: str | None = None) -> Mod
 
 
 def build_civil_analyst_agent(
-    *, temperature: float = 0.2, system_prompt: str | None = None
+    *,
+    temperature: float = 0.2,
+    system_prompt: str | None = None,
+    model_id: str | None = None,
 ) -> Agent:
     prompt = (
         system_prompt.strip()
@@ -49,7 +52,7 @@ def build_civil_analyst_agent(
         else CIVIL_ANALYST_SYSTEM_PROMPT
     )
     return Agent(
-        model=build_model(temperature=temperature),
+        model=build_model(temperature=temperature, model_id=model_id),
         system_prompt=prompt,
         tools=[
             resolve_parcel,
