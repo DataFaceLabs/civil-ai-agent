@@ -100,6 +100,60 @@ def test_will_serve_affirmative_claim_still_flagged() -> None:
     assert any("forbidden phrase: 'will-serve'" in w for w in warnings)
 
 
+def test_disclaimer_satisfied_by_exact_text() -> None:
+    # Backward compat: the literal sentence still satisfies the check.
+    warnings = evaluate_guardrails(
+        "Utility service boundaries indicate coverage only; capacity and will-serve are "
+        "not confirmed. Water is provided by the City of Austin.",
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert not any("missing required disclaimer" in w for w in warnings)
+
+
+def test_disclaimer_satisfied_by_paraphrase() -> None:
+    # Regression test: real Haiku-generated drafts never emit the literal canned
+    # sentence (verified 22/22 utilities drafts on disk, 100% false positive under the
+    # old exact-match check) but do correctly convey the concept in their own words.
+    # These two sentences are drawn verbatim from real agent output.
+    for sentence in (
+        "Coverage within a CCN service territory indicates the provider's jurisdiction "
+        "only and does not confirm capacity or will-serve availability.",
+        "However, service-territory coverage is not equivalent to confirmed capacity "
+        "or will-serve.",
+        "However, coverage does not guarantee capacity or a will-serve commitment.",
+    ):
+        warnings = evaluate_guardrails(sentence, DEFAULT_GUARDRAILS, section_id="utilities")
+        assert not any("missing required disclaimer" in w for w in warnings), (
+            f"should have been satisfied by: {sentence!r}"
+        )
+
+
+def test_disclaimer_still_flagged_when_concept_absent() -> None:
+    # A draft that discusses coverage but never actually distinguishes it from
+    # capacity/will-serve must still be flagged -- the fix is not a neutered no-op.
+    warnings = evaluate_guardrails(
+        "The property is within Austin Water's CCN coverage area and Austin Energy's "
+        "service territory. Fire protection is provided by the Austin Fire Department.",
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert any("missing required disclaimer" in w for w in warnings)
+
+
+def test_disclaimer_semantic_check_only_applies_to_coverage_capacity_wording() -> None:
+    # A differently-worded disclaimer that isn't about coverage/capacity falls back to
+    # exact match rather than silently degrading to a permissive concept check.
+    config = GuardrailConfig(
+        required_disclaimers=("Consult a licensed surveyor before construction.",),
+        disclaimer_sections=frozenset({"utilities"}),
+    )
+    warnings = evaluate_guardrails(
+        "Coverage does not confirm capacity or will-serve.", config, section_id="utilities"
+    )
+    assert any("missing required disclaimer" in w for w in warnings)
+
+
 def json_payload_with_will_serve() -> str:
     return """
     {
