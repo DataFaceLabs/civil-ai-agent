@@ -22,7 +22,7 @@ def assistant_chat_prompt(context: WorkbenchContext) -> str:
         parts.append(context.chat_system_prompt.strip())
     else:
         parts.append(
-            f"You are the civil.ai assistant helping an analyst with the {section} "
+            f"You are the civil1.ai assistant helping an analyst with the {section} "
             "section of a feasibility study."
         )
 
