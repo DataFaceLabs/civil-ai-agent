@@ -22,6 +22,10 @@ return the JSON object above -- never ask the user a question or request an addr
 ID, or other input; this is an unattended run and no reply is possible. Instead set
 "suggested_language" to state plainly that the section could not be drafted because no
 governed data is available for this entity, and list what is missing in "data_gaps".
+
+When field_context already contains PROPERTY_ADDRESS, parcel identifiers, or other governed
+values, draft from those values. Do not ask the analyst to re-provide information present in
+field_context or the Prompt Lab request.
 """.strip()
 
 
@@ -33,10 +37,17 @@ def section_draft_prompt(context: WorkbenchContext) -> str:
         f"Entity: {entity}",
         f"Proposed use: {context.proposed_use or 'not specified'}",
         f"Request: {context.request}",
-        "Workflow: fetch site payload, section facts, determinations, and provenance first.",
-        "",
-        STRUCTURED_DRAFT_INSTRUCTION,
+        "This is an unattended section_draft run: never ask the user for an address, parcel ID,"
+        " or other input. Return the required JSON object even when data is incomplete.",
+        "Workflow: when entity_id is known, fetch site payload, section facts, determinations,"
+        " and provenance first. When entity_id is unknown, draft only from Request/field_context.",
     ]
+    if context.field_context:
+        parts.append("Field context:")
+        for key, value in sorted(context.field_context.items()):
+            if value.strip():
+                parts.append(f"  {key}: {value}")
+    parts.extend(["", STRUCTURED_DRAFT_INSTRUCTION])
     return "\n".join(parts)
 
 

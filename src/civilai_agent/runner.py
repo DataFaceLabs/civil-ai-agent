@@ -94,8 +94,61 @@ def _resolved_guardrails(context: WorkbenchContext) -> GuardrailConfig:
     )
 
 
+def _missing_section_inputs_response(context: WorkbenchContext) -> AgentResponse | None:
+    """Hard-stop unattended section drafts that would otherwise ask the user for input."""
+    if context.workflow != AgentWorkflow.SECTION_DRAFT:
+        return None
+    if (context.entity_id or "").strip():
+        return None
+    has_fields = any(str(v).strip() for v in context.field_context.values())
+    if has_fields:
+        return None
+    section = context.active_section_id or "section"
+    message = (
+        f"Could not draft the {section} section because no resolved entity_id was provided "
+        "and no governed field values were available. Resolve the parcel/address before "
+        "requesting a section draft."
+    )
+    return AgentResponse(
+        message=message,
+        artifacts=(
+            AgentArtifact(
+                type="draft_section",
+                title=f"Draft — {section}",
+                status="partial",
+                section_id=context.active_section_id,
+                claims=(),
+                data_gaps=(
+                    "Missing entity_id — resolve parcel/address before drafting.",
+                    "No governed field_context values were supplied.",
+                ),
+                body=message,
+                metadata={"blocked_reason": "missing_entity_and_field_context"},
+            ),
+        ),
+        trace_summary=TraceSummary(tools_used=("missing_entity_gate",)),
+        structured_draft={
+            "suggested_language": message,
+            "caveats": (),
+            "verification_steps": (
+                "Resolve the project parcel and confirm entity_id is present on site_payload.",
+            ),
+            "data_gaps": (
+                "Missing entity_id — resolve parcel/address before drafting.",
+                "No governed field_context values were supplied.",
+            ),
+            "sources": (),
+        },
+        guardrail_warnings=("section_draft blocked: missing entity_id and empty field_context",),
+    )
+
+
 def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
     """Legacy Strands tool-loop path (no pipeline routing)."""
+    blocked = _missing_section_inputs_response(context)
+    if blocked is not None and not dry_run:
+        return blocked
+
     search_config = _apply_search_policy(context)
     if not dry_run:
         _run_prefetch_searches(context, search_config)

@@ -142,3 +142,43 @@ def test_section_draft_parse_failure_returns_warning_not_crash(mock_build: Magic
     assert response.structured_draft is None
     assert response.message == "Plain prose without JSON."
     assert any("could not be parsed" in w.lower() for w in response.guardrail_warnings)
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_section_draft_blocks_when_entity_and_fields_missing(mock_build: MagicMock) -> None:
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id=None,
+        active_section_id="parcel",
+        request="Draft parcel section.",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        field_context={},
+    )
+    response = run_agent(context)
+    mock_build.assert_not_called()
+    assert response.artifacts
+    assert (
+        response.artifacts[0].metadata.get("blocked_reason") == "missing_entity_and_field_context"
+    )
+    assert "entity_id" in response.message.lower()
+    assert any("missing entity_id" in w.lower() for w in response.guardrail_warnings)
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_section_draft_runs_when_fields_present_without_entity(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    agent.model.config = {}
+    mock_build.return_value = agent
+
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id=None,
+        active_section_id="parcel",
+        request="Draft parcel section.",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        field_context={"PROPERTY_ADDRESS": "123 Main St, Austin, TX"},
+    )
+    response = run_agent(context)
+    mock_build.assert_called_once()
+    assert response.structured_draft is not None
