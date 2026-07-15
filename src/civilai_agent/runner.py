@@ -157,7 +157,7 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
             prompt = (
                 f"{user_prompt}\n\nYour previous response failed structured validation "
                 f"({detail}). Respond again with ONLY the JSON object "
-                f'(keys: suggested_language, caveats, verification_steps, data_gaps, '
+                f"(keys: suggested_language, caveats, verification_steps, data_gaps, "
                 f"sources) — no markdown headings and no prose outside the JSON."
             )
 
