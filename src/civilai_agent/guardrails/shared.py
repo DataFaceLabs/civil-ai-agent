@@ -6,23 +6,34 @@ import re
 
 from civilai_agent.guardrails.structured import SectionDraftOutput
 
-# "will-serve" alone is too blunt a match: real drafts consistently and correctly use it
-# in safe, recommending/cautionary language ("obtain a will-serve letter", "will-serve
-# status is not confirmed"). Only flag a sentence containing "will-serve" when none of
-# these markers are also present in that sentence.
-_SAFE_WILL_SERVE_MARKERS = (
-    "not confirmed",
-    "not guaranteed",
-    "obtain a will-serve",
-    "will-serve letter",
-    "will-serve status",
-    "will-serve commitment",
-    "do not confirm",
-    "does not confirm",
-    "do not establish",
-    "does not establish",
-    "pending",
+# These concepts are overclaims only when asserted affirmatively. Real drafts correctly
+# and constantly use them in negated / verification-oriented sentences ("coverage does
+# not confirm will-serve", "obtain a will-serve letter"), so a bare substring match is a
+# false positive. Flag a sentence containing the phrase only when it carries no negation
+# or verification/recommendation marker.
+#
+# Intentionally keyed off negations and action verbs, NOT nouns: an earlier version
+# treated "will-serve letter"/"will-serve commitment"/"will-serve status" as inherently
+# safe, which let "the provider issued a will-serve commitment" (an actual overclaim)
+# slip through. Kept in lockstep with civilai.llm.guardrail_policy in civil-ai-data.
+_CONTEXTUAL_FORBIDDEN_PHRASES = frozenset(
+    {
+        "will-serve",
+        "guaranteed capacity",
+        "confirmed service commitment",
+    }
 )
+_SAFE_MARKER_RE = re.compile(
+    r"\b("
+    r"not|no|never|without|cannot|can't|don't|does\s+not|do\s+not|doesn't|didn't|"
+    r"isn't|aren't|wasn't|weren't|none|nor|unable|unconfirmed|unverified|pending|"
+    r"tbd|obtain|obtained|request|requested|require|requires|required|verify|"
+    r"verified|verification|apply|recommend|recommends|recommended|coordinate"
+    r")\b",
+    re.IGNORECASE,
+)
+_SUBJECT_TO_RE = re.compile(r"\bsubject\s+to\b", re.IGNORECASE)
+_TO_BE_CONFIRMED_RE = re.compile(r"\bto\s+be\s+confirmed\b", re.IGNORECASE)
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 # The required-disclaimer check below used to require an EXACT substring match against
@@ -101,20 +112,24 @@ DEFAULT_GUARDRAILS = GuardrailConfig(
 )
 
 
-def _will_serve_flagged(text: str) -> bool:
-    for sentence in _SENTENCE_SPLIT.split(text):
-        lowered = sentence.lower()
-        if "will-serve" in lowered and not any(
-            marker in lowered for marker in _SAFE_WILL_SERVE_MARKERS
-        ):
-            return True
-    return False
+def _has_safe_marker(sentence: str) -> bool:
+    return bool(
+        _SAFE_MARKER_RE.search(sentence)
+        or _SUBJECT_TO_RE.search(sentence)
+        or _TO_BE_CONFIRMED_RE.search(sentence)
+    )
 
 
 def _phrase_flagged(phrase: str, text: str) -> bool:
-    if phrase.lower() == "will-serve":
-        return _will_serve_flagged(text)
-    return phrase.lower() in text.lower()
+    needle = phrase.lower().strip()
+    if not needle:
+        return False
+    if needle not in _CONTEXTUAL_FORBIDDEN_PHRASES:
+        return needle in text.lower()
+    for sentence in _SENTENCE_SPLIT.split(text):
+        if needle in sentence.lower() and not _has_safe_marker(sentence):
+            return True
+    return False
 
 
 def _disclaimer_applies(guardrails: GuardrailConfig, section_id: str | None) -> bool:
