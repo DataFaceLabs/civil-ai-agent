@@ -25,6 +25,10 @@ Rules:
 - Do not invent facts when fields are empty; state uncertainty explicitly.
 - Produce concise, ATX Civil-style feasibility language.
 - No tools are available; all context is injected below. Leave sources empty.
+- If a "Section formatting requirements" block is provided, follow its structure (subsection
+  headings, order) using markdown headings in suggested_language. Treat it as a formatting
+  guide only — never source facts from it; governed facts, slots, and determinations above
+  remain the only authoritative content.
 """.strip()
 
 
@@ -36,7 +40,7 @@ def _message_from_result(result: Any) -> str:
     return str(result)
 
 
-def build_render_prompt(spec: DraftSpec) -> str:
+def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
     """Compose the single user prompt for a renderer call."""
     missing = [item.model_dump() for item in spec.missing_inputs]
     stem_lines = "\n".join(f"- {stem}" for stem in spec.stems) or "- (none)"
@@ -62,29 +66,58 @@ def build_render_prompt(spec: DraftSpec) -> str:
         "",
         "Missing inputs (surface each in verification_steps and/or data_gaps):",
         json.dumps(missing, indent=2, sort_keys=True),
-        "",
-        STRUCTURED_DRAFT_INSTRUCTION,
     ]
+    if format_directive.strip():
+        parts += [
+            "",
+            "Section formatting requirements (structure/style only — do not source facts "
+            "from this; governed facts, slots, and determinations above are authoritative):",
+            format_directive.strip(),
+        ]
+    parts += ["", STRUCTURED_DRAFT_INSTRUCTION]
     return "\n".join(parts)
 
 
-def build_renderer_agent(*, model_id: str | None = None, temperature: float = 0.2) -> Agent:
+def _renderer_system_prompt(tenant_system_prompt: str) -> str:
+    if not tenant_system_prompt.strip():
+        return RENDERER_SYSTEM_PROMPT
+    return (
+        f"{RENDERER_SYSTEM_PROMPT}\n\n"
+        "Tenant drafting style requirements (style, tone, and format only — the rules above "
+        "about governed facts, branches, and tools still control content; do not source facts "
+        "from this block):\n"
+        f"{tenant_system_prompt.strip()}"
+    )
+
+
+def build_renderer_agent(
+    *,
+    model_id: str | None = None,
+    temperature: float = 0.2,
+    tenant_system_prompt: str = "",
+) -> Agent:
     """Strands agent with no tools — one constrained render call."""
     return Agent(
         model=build_model(temperature=temperature, model_id=model_id),
-        system_prompt=RENDERER_SYSTEM_PROMPT,
+        system_prompt=_renderer_system_prompt(tenant_system_prompt),
         tools=[],
     )
 
 
-def render_draft(spec: DraftSpec, *, model_id: str | None = None) -> SectionDraftOutput:
+def render_draft(
+    spec: DraftSpec,
+    *,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
+    model_id: str | None = None,
+) -> SectionDraftOutput:
     """Render the spec with one LLM call; retry once on structured-parse failure.
 
     The retry re-sends the same prompt with the parse error appended so the model
     can correct its JSON. A second failure raises — never loop unbounded.
     """
-    agent = build_renderer_agent(model_id=model_id)
-    prompt = build_render_prompt(spec)
+    agent = build_renderer_agent(model_id=model_id, tenant_system_prompt=tenant_system_prompt)
+    prompt = build_render_prompt(spec, format_directive=format_directive)
     detail = ""
     for attempt in range(2):
         raw = agent(prompt)

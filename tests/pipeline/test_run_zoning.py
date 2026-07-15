@@ -83,6 +83,43 @@ def test_county_confirmed_non_zoning_uses_template_path() -> None:
     assert "not subject to zoning regulations" in response.message
 
 
+def test_zoning_tier2_dry_run_carries_tenant_format_directive() -> None:
+    """UAT (2026-07-15): zoning/environmental came back as flat, unheaded prose because the
+    pipeline never saw the tenant's Prompt Lab subsection/heading instructions -- only the
+    legacy agent path did (via context.request). This asserts run_section_draft threads
+    context.request through to the pipeline's render prompt as a formatting directive."""
+    ctx = SectionContext(
+        entity_id="ent-1",
+        section_id="zoning",
+        facts={
+            "facts": {
+                "zoning_code": "CS",
+                "zoning_base": "Commercial Services",
+                "allowed_use_flags": "[]",
+            }
+        },
+        determinations=_zoning_det(
+            **{
+                "jurisdiction.jurisdiction_primary": "City of Austin",
+                "jurisdiction.in_city_limits": True,
+            }
+        ),
+    )
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="zoning",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        request="Produce the following subsections... Format: subsections with the headings above.",
+    )
+
+    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=ctx):
+        response = run_section_draft(context, dry_run=True)
+
+    assert "Section formatting requirements" in response.message
+    assert "Format: subsections with the headings above." in response.message
+
+
 def test_zoning_tier2_dry_run_uses_render_path_not_legacy() -> None:
     ctx = SectionContext(
         entity_id="ent-1",
@@ -109,6 +146,44 @@ def test_zoning_tier2_dry_run_uses_render_path_not_legacy() -> None:
     assert response.artifacts[0].metadata["pipeline_path"] == "render"
     assert response.artifacts[0].metadata["branch_id"] == "zoning.zoned_city"
     assert "Would invoke agent" not in response.message
+
+
+@patch("civilai_agent.pipeline.render.render_draft")
+def test_zoning_tier2_live_threads_tenant_system_prompt(mock_render: MagicMock) -> None:
+    """UAT (2026-07-15): confirms context.system_prompt (the tenant's 'Format: h1 and h2
+    subsections with headings... Emit field data facts in bold' mandate) reaches the
+    renderer, not just context.request. This is the finding that the pipeline was silently
+    dropping the tenant's system prompt entirely in favor of its own hardcoded one."""
+    mock_render.return_value = SectionDraftOutput(
+        suggested_language="The property is zoned CS (Commercial Services)."
+    )
+    ctx = SectionContext(
+        entity_id="ent-1",
+        section_id="zoning",
+        facts={"facts": {"zoning_code": "CS", "allowed_use_flags": "[]"}},
+        determinations=_zoning_det(
+            **{
+                "jurisdiction.jurisdiction_primary": "City of Austin",
+                "jurisdiction.in_city_limits": True,
+            }
+        ),
+    )
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="zoning",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        request="Draft section.",
+        system_prompt="Format: h1 and h2 subsections with headings. Emit facts in bold.",
+    )
+
+    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=ctx):
+        run_section_draft(context, dry_run=False)
+
+    mock_render.assert_called_once()
+    assert mock_render.call_args.kwargs["tenant_system_prompt"] == (
+        "Format: h1 and h2 subsections with headings. Emit facts in bold."
+    )
 
 
 @patch("civilai_agent.pipeline.render.render_draft")

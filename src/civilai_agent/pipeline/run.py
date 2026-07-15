@@ -74,6 +74,8 @@ def _run_zoning_pipeline(
     ctx: SectionContext,
     *,
     dry_run: bool,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.zoning import dispatch_zoning
     from civilai_agent.pipeline.render import build_render_prompt, render_draft
@@ -91,7 +93,7 @@ def _run_zoning_pipeline(
             branch_id=spec.branch_id,
         )
     elif dry_run:
-        prompt = build_render_prompt(spec)
+        prompt = build_render_prompt(spec, format_directive=format_directive)
         message = (
             f"[pipeline dry-run] would render zoning branch={spec.branch_id} "
             f"tier={spec.tier}\n{prompt}"
@@ -121,7 +123,9 @@ def _run_zoning_pipeline(
         )
     else:
         started = time.perf_counter()
-        structured = render_draft(spec)
+        structured = render_draft(
+            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
+        )
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         response = _response_from_structured(
             structured,
@@ -140,6 +144,8 @@ def _run_flood_pipeline(
     ctx: SectionContext,
     *,
     dry_run: bool,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.flood import dispatch_flood
     from civilai_agent.pipeline.render import build_render_prompt, render_draft
@@ -157,7 +163,7 @@ def _run_flood_pipeline(
             branch_id=spec.branch_id,
         )
     elif dry_run:
-        prompt = build_render_prompt(spec)
+        prompt = build_render_prompt(spec, format_directive=format_directive)
         message = (
             f"[pipeline dry-run] would render flood branch={spec.branch_id} "
             f"tier={spec.tier}\n{prompt}"
@@ -187,7 +193,9 @@ def _run_flood_pipeline(
         )
     else:
         started = time.perf_counter()
-        structured = render_draft(spec)
+        structured = render_draft(
+            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
+        )
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         response = _response_from_structured(
             structured,
@@ -206,6 +214,8 @@ def _run_utilities_pipeline(
     ctx: SectionContext,
     *,
     dry_run: bool,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.utilities import dispatch_utilities
     from civilai_agent.pipeline.render import build_render_prompt, render_draft
@@ -213,7 +223,7 @@ def _run_utilities_pipeline(
     spec = dispatch_utilities(ctx)
 
     if dry_run:
-        prompt = build_render_prompt(spec)
+        prompt = build_render_prompt(spec, format_directive=format_directive)
         message = (
             f"[pipeline dry-run] would render utilities branch={spec.branch_id} "
             f"tier={spec.tier}\n{prompt}"
@@ -243,7 +253,9 @@ def _run_utilities_pipeline(
         )
 
     started = time.perf_counter()
-    structured = render_draft(spec)
+    structured = render_draft(
+        spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
+    )
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     response = _response_from_structured(
         structured,
@@ -261,6 +273,8 @@ def _run_environmental_pipeline(
     ctx: SectionContext,
     *,
     dry_run: bool,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.environmental import dispatch_environmental
     from civilai_agent.pipeline.render import build_render_prompt, render_draft
@@ -278,7 +292,7 @@ def _run_environmental_pipeline(
             branch_id=spec.branch_id,
         )
     elif dry_run:
-        prompt = build_render_prompt(spec)
+        prompt = build_render_prompt(spec, format_directive=format_directive)
         message = (
             f"[pipeline dry-run] would render environmental branch={spec.branch_id} "
             f"tier={spec.tier}\n{prompt}"
@@ -308,7 +322,9 @@ def _run_environmental_pipeline(
         )
     else:
         started = time.perf_counter()
-        structured = render_draft(spec)
+        structured = render_draft(
+            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
+        )
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         response = _response_from_structured(
             structured,
@@ -338,17 +354,48 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
     if gated is not None:
         return finalize_pipeline_response(gated)
 
+    # context.request carries the tenant's configured Prompt Lab drafting template for this
+    # section (subsection list) and context.system_prompt carries the tenant-wide format
+    # mandate ("Format: h1 and h2 subsections with headings... Emit field data facts in
+    # bold") -- this is what actually makes legacy-path sections (Parcel, Access) render
+    # with real markdown structure. The pipeline's own dispatch/stems logic (Python-owned,
+    # deterministic) remains the sole source of *content*; both are passed through only as
+    # structural/style guides (see render.py), so pipeline-rendered sections come back with
+    # the same heading structure as legacy-path sections instead of flat, unheaded prose.
+    format_directive = context.request
+    tenant_system_prompt = context.system_prompt
+
     if section_id == "zoning":
-        return _run_zoning_pipeline(ctx, dry_run=dry_run)
+        return _run_zoning_pipeline(
+            ctx,
+            dry_run=dry_run,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
+        )
 
     if section_id == "flood":
-        return _run_flood_pipeline(ctx, dry_run=dry_run)
+        return _run_flood_pipeline(
+            ctx,
+            dry_run=dry_run,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
+        )
 
     if section_id == "utilities":
-        return _run_utilities_pipeline(ctx, dry_run=dry_run)
+        return _run_utilities_pipeline(
+            ctx,
+            dry_run=dry_run,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
+        )
 
     if section_id == "environmental":
-        return _run_environmental_pipeline(ctx, dry_run=dry_run)
+        return _run_environmental_pipeline(
+            ctx,
+            dry_run=dry_run,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
+        )
 
     from civilai_agent.runner import run_legacy_agent
 

@@ -7,7 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from civilai_agent.pipeline.render import build_render_prompt, render_draft
+from civilai_agent.pipeline.render import (
+    RENDERER_SYSTEM_PROMPT,
+    build_render_prompt,
+    build_renderer_agent,
+    render_draft,
+)
 from civilai_agent.pipeline.specs import DraftSpec, MissingInput
 
 
@@ -59,6 +64,74 @@ def test_build_render_prompt_includes_spec_fields() -> None:
     assert "suggested_language" in prompt
 
 
+def test_build_render_prompt_omits_format_section_when_directive_empty() -> None:
+    prompt = build_render_prompt(_sample_spec())
+    assert "Section formatting requirements" not in prompt
+
+
+def test_build_render_prompt_includes_format_directive_when_provided() -> None:
+    """UAT (2026-07-15): pipeline-rendered sections (zoning, environmental, ...) came back
+    as flat unheaded prose because the renderer never saw the tenant's Prompt Lab subsection/
+    heading instructions -- only the legacy agent path did. This asserts the fix: the tenant's
+    format directive reaches the prompt, clearly scoped to structure, not facts."""
+    directive = (
+        "Produce the following subsections, in order:\n\nEcoregion — ...\n\n"
+        "Format: subsections with the headings above."
+    )
+    prompt = build_render_prompt(_sample_spec(), format_directive=directive)
+    assert "Section formatting requirements" in prompt
+    assert directive in prompt
+    assert "do not source facts from this" in prompt
+
+
+@patch("civilai_agent.pipeline.render.build_renderer_agent")
+def test_render_draft_threads_format_directive_into_prompt(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    mock_build.return_value = agent
+
+    render_draft(_sample_spec(), format_directive="Format: use headings above.")
+
+    prompt = agent.call_args[0][0]
+    assert "Section formatting requirements" in prompt
+    assert "Format: use headings above." in prompt
+
+
+def test_build_renderer_agent_appends_tenant_system_prompt() -> None:
+    """UAT (2026-07-15): James's finding, confirmed -- the tenant's *system* prompt
+    (context.system_prompt) carries the master 'Format: h1 and h2 subsections with
+    headings... Emit field data facts in bold' mandate. This is what makes legacy-path
+    sections (Parcel, Access) render with real markdown structure, and it's the piece the
+    pipeline renderer dropped entirely (it always used its own hardcoded system prompt).
+    Asserts the tenant's mandate now reaches the agent's actual system prompt, additively."""
+    agent = build_renderer_agent(
+        tenant_system_prompt="Format: h1 and h2 subsections with headings. Emit facts in bold."
+    )
+    system_prompt = agent.system_prompt
+    assert "Format: h1 and h2 subsections with headings." in system_prompt
+    assert "governed facts, branches, and tools still control content" in system_prompt
+    # The pipeline's own mechanical rules (don't re-decide, don't contradict facts) survive.
+    assert "re-decide feasibility" in system_prompt
+
+
+def test_build_renderer_agent_omits_tenant_block_when_empty() -> None:
+    agent = build_renderer_agent()
+    assert agent.system_prompt == RENDERER_SYSTEM_PROMPT
+
+
+@patch("civilai_agent.pipeline.render.build_renderer_agent")
+def test_render_draft_threads_tenant_system_prompt(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    mock_build.return_value = agent
+
+    render_draft(_sample_spec(), tenant_system_prompt="Format: h1 and h2 headings.")
+
+    mock_build.assert_called_once_with(
+        model_id=None, tenant_system_prompt="Format: h1 and h2 headings."
+    )
+
+
 @patch("civilai_agent.pipeline.render.build_renderer_agent")
 def test_render_draft_parses_canned_response(mock_build: MagicMock) -> None:
     agent = MagicMock()
@@ -69,7 +142,7 @@ def test_render_draft_parses_canned_response(mock_build: MagicMock) -> None:
 
     assert "DR" in output.suggested_language
     assert output.data_gaps == ("proposed_use not specified",)
-    mock_build.assert_called_once_with(model_id="test-model")
+    mock_build.assert_called_once_with(model_id="test-model", tenant_system_prompt="")
     agent.assert_called_once()
     prompt = agent.call_args[0][0]
     assert "zoning.coa_limited_purpose" in prompt
