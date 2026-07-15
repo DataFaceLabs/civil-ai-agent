@@ -29,3 +29,38 @@ def test_build_user_prompt_uses_section_draft_for_workflow() -> None:
     prompt = build_user_prompt(context)
     assert "flood" in prompt
     assert "suggested_language" in prompt
+
+
+def test_section_draft_prompt_forbids_interactive_questions() -> None:
+    from civilai_agent.models.context import AgentWorkflow, WorkbenchContext
+    from civilai_agent.workflows.section_draft import section_draft_prompt
+
+    prompt = section_draft_prompt(
+        WorkbenchContext(
+            project_id="test",
+            entity_id=None,
+            active_section_id="parcel",
+            request="Draft parcel using Prompt Lab template.",
+            workflow=AgentWorkflow.SECTION_DRAFT,
+            field_context={"PROPERTY_ADDRESS": "123 Main St, Austin, TX"},
+        )
+    )
+    assert "never ask the user" in prompt.lower()
+    assert "PROPERTY_ADDRESS: 123 Main St, Austin, TX" in prompt
+    assert "unknown entity" in prompt
+
+
+def test_section_draft_prompt_includes_structured_contract() -> None:
+    from civilai_agent.models.context import AgentWorkflow, WorkbenchContext
+    from civilai_agent.workflows.section_draft import section_draft_prompt
+
+    prompt = section_draft_prompt(
+        WorkbenchContext(
+            project_id="test",
+            entity_id="ent-1",
+            active_section_id="zoning",
+            request="Draft zoning.",
+            workflow=AgentWorkflow.SECTION_DRAFT,
+        )
+    )
+    assert '"suggested_language"' in prompt
