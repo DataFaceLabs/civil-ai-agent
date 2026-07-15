@@ -100,9 +100,19 @@ def test_will_serve_affirmative_claim_still_flagged() -> None:
     assert any("forbidden phrase: 'will-serve'" in w for w in warnings)
 
 
+def test_will_serve_procedural_next_step_not_flagged() -> None:
+    for sentence in (
+        "A will-serve letter from Austin Water is the appropriate next step.",
+        "Will-serve status remains unknown.",
+        "The next step is a will-serve letter.",
+        "capacity and will-serve remain to be determined.",
+    ):
+        warnings = evaluate_guardrails(sentence, DEFAULT_GUARDRAILS, section_id="utilities")
+        assert not any("forbidden phrase: 'will-serve'" in w for w in warnings), sentence
+
+
 def test_will_serve_affirmative_commitment_now_flagged() -> None:
-    # Tightening: an affirmative issuance ("issued a will-serve commitment") is an
-    # overclaim. The old noun-based safe markers let this slip; it must be caught now.
+    # Affirmative issuance ("issued a will-serve commitment") is an overclaim.
     output = SectionDraftOutput(
         suggested_language="The utility issued a will-serve commitment for the property."
     )
