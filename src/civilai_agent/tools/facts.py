@@ -60,7 +60,12 @@ def resolve_parcel(address: str = "", parcel_id: str = "", county: str = "") -> 
 
 @tool
 def get_section_facts(entity_id: str, section_id: str) -> str:
-    """Fetch governed section facts for an entity (zoning, flood, utilities, etc.)."""
+    """Fetch governed section facts for an entity.
+
+    Valid section_id values: parcel-overview, zoning, flood, jurisdiction, watershed,
+    soils, utilities, mobility, environmental, compliance, provenance. (A caller-facing
+    "parcel" or "access" step name is normalized to parcel-overview/mobility for you.)
+    """
     client = get_data_client()
     return _envelope(lambda: client.get_section_facts(entity_id, section_id))
 

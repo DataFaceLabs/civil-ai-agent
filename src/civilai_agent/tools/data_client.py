@@ -21,6 +21,30 @@ class DataApiError(RuntimeError):
         self.status_code = status_code
 
 
+# civil-ai-platform's Prompt Lab drafting workflow has its own 7-step vocabulary
+# (LLM_SECTION_STEP_KEYS in civilai_platform.llm_defaults: parcel, zoning,
+# environmental, utilities, access, exhibits, draft) that mostly, but not entirely,
+# matches civil-ai-data's 11 real section_ids. context.active_section_id (the
+# platform's step key) gets injected verbatim into the agent's own prompt text
+# ("Active section: {step_key}", see workflows/section_draft.py), so the model
+# naturally reuses that exact string as the section_id argument when it calls
+# get_section_facts -- it has no way to know the two vocabularies diverge here.
+# UAT-reported bug (2026-07-15): drafting the "Parcel" section 404'd every time
+# on GET /v1/sections/parcel/facts/{entity_id} -- "parcel" was never a valid
+# section_id, the real one is "parcel-overview". "access" has the same latent
+# mismatch (the data-layer equivalent is "mobility") though not yet reported.
+# "exhibits"/"draft" have no governed-data section equivalent at all and aren't
+# aliased -- a tool call for either is a conceptual error, not a naming one.
+_SECTION_ID_ALIASES: dict[str, str] = {
+    "parcel": "parcel-overview",
+    "access": "mobility",
+}
+
+
+def _normalize_section_id(section_id: str) -> str:
+    return _SECTION_ID_ALIASES.get(section_id, section_id)
+
+
 class DataApiClient:
     """Calls civil-ai-data /v1 endpoints (direct or via platform proxy)."""
 
@@ -91,7 +115,8 @@ class DataApiClient:
         return self._request("POST", "/v1/entities/resolve", json=body)
 
     def get_section_facts(self, entity_id: str, section_id: str) -> dict[str, Any]:
-        return self._request("GET", f"/v1/sections/{section_id}/facts/{entity_id}")
+        normalized = _normalize_section_id(section_id)
+        return self._request("GET", f"/v1/sections/{normalized}/facts/{entity_id}")
 
     def get_site_by_entity(self, entity_id: str) -> dict[str, Any]:
         # The by-entity FE route is GET /v1/fe/site/by-entity/{entity_id} (PII-scoped).
