@@ -7,15 +7,16 @@ import re
 from civilai_agent.guardrails.structured import SectionDraftOutput
 
 # These concepts are overclaims only when asserted affirmatively. Real drafts correctly
-# and constantly use them in negated / verification-oriented sentences ("coverage does
-# not confirm will-serve", "obtain a will-serve letter"), so a bare substring match is a
-# false positive. Flag a sentence containing the phrase only when it carries no negation
-# or verification/recommendation marker.
+# and constantly use them in procedural / cautionary sentences ("will-serve letter is
+# the next step", "will-serve status remains unknown"), so a bare substring match — or
+# a "no safe marker ⇒ flag" rule — hard-fails Create Feasibility / section drafts.
 #
-# Intentionally keyed off negations and action verbs, NOT nouns: an earlier version
-# treated "will-serve letter"/"will-serve commitment"/"will-serve status" as inherently
-# safe, which let "the provider issued a will-serve commitment" (an actual overclaim)
-# slip through. Kept in lockstep with civilai.llm.guardrail_policy in civil-ai-data.
+# will-serve: flag only on affirmative claim patterns (issued/provides/will-serve the
+# site/…). Procedural letter/status mentions and negated/verification sentences pass.
+# guaranteed capacity / confirmed service commitment: flag when present without a
+# negation or verification marker.
+#
+# Kept in lockstep with civilai.llm.guardrail_policy in civil-ai-data.
 _CONTEXTUAL_FORBIDDEN_PHRASES = frozenset(
     {
         "will-serve",
@@ -27,13 +28,40 @@ _SAFE_MARKER_RE = re.compile(
     r"\b("
     r"not|no|never|without|cannot|can't|don't|does\s+not|do\s+not|doesn't|didn't|"
     r"isn't|aren't|wasn't|weren't|none|nor|unable|unconfirmed|unverified|pending|"
-    r"tbd|obtain|obtained|request|requested|require|requires|required|verify|"
-    r"verified|verification|apply|recommend|recommends|recommended|coordinate"
+    r"tbd|unknown|outstanding|undetermined|determine|determined|remain|remains|"
+    r"obtain|obtained|request|requested|require|requires|required|verify|confirm|"
+    r"confirms|confirmation|verified|verification|apply|recommend|recommends|"
+    r"recommended|coordinate|needed|appropriate|next\s+step"
     r")\b",
     re.IGNORECASE,
 )
 _SUBJECT_TO_RE = re.compile(r"\bsubject\s+to\b", re.IGNORECASE)
-_TO_BE_CONFIRMED_RE = re.compile(r"\bto\s+be\s+confirmed\b", re.IGNORECASE)
+_TO_BE_CONFIRMED_RE = re.compile(r"\bto\s+be\s+(confirmed|determined)\b", re.IGNORECASE)
+_WILL_SERVE_CLAIM_RE = re.compile(
+    r"("
+    r"\bwill-serve\s+(?:the\s+|this\s+|our\s+)?"
+    r"(?:site|parcel|property|project|development|wastewater|water|sewer|electric)\b"
+    r"|"
+    r"\bwill-serve\s+(?:is|are|was|were|has\s+been|have\s+been)?\s*confirmed\b"
+    r"|"
+    r"\b(?:issued|issues|grant(?:s|ed)?|provide[sd]?|secured|received|approve[sd]?)\b"
+    r"[^.!?]{0,80}\bwill-serve\b"
+    r"|"
+    r"\bwill-serve\b[^.!?]{0,80}\b(?:issued|granted|provided|secured|received|"
+    r"approved|confirmed)\b"
+    r"|"
+    r"\b(?:has|have)\s+will-serve\b"
+    r")",
+    re.IGNORECASE,
+)
+_WILL_SERVE_PROCEDURAL_RE = re.compile(
+    r"\bwill-serve\s+(?:letter|status|process|application|approval|request)\b"
+    r"|"
+    r"\b(?:letter|status|process|application|approval)\b[^.!?]{0,40}\bwill-serve\b"
+    r"|"
+    r"\bwill-serve\b[^.!?]{0,40}\b(?:letter|status|process|application)\b",
+    re.IGNORECASE,
+)
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
 
 # The required-disclaimer check below used to require an EXACT substring match against
@@ -120,12 +148,27 @@ def _has_safe_marker(sentence: str) -> bool:
     )
 
 
+def _will_serve_flagged(text: str) -> bool:
+    for sentence in _SENTENCE_SPLIT.split(text):
+        if "will-serve" not in sentence.lower():
+            continue
+        if _has_safe_marker(sentence):
+            continue
+        if _WILL_SERVE_PROCEDURAL_RE.search(sentence):
+            continue
+        if _WILL_SERVE_CLAIM_RE.search(sentence):
+            return True
+    return False
+
+
 def _phrase_flagged(phrase: str, text: str) -> bool:
     needle = phrase.lower().strip()
     if not needle:
         return False
     if needle not in _CONTEXTUAL_FORBIDDEN_PHRASES:
         return needle in text.lower()
+    if needle == "will-serve":
+        return _will_serve_flagged(text)
     for sentence in _SENTENCE_SPLIT.split(text):
         if needle in sentence.lower() and not _has_safe_marker(sentence):
             return True
