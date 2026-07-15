@@ -39,10 +39,12 @@ def finalize_text_output(
     if structured_mode:
         structured, parse_errors = parse_structured_response(text)
         if structured is None:
+            # Parse/format failures are soft: enforceGuardrails covers content policy
+            # (forbidden phrases / required disclaimers), not JSON schema. Hard-failing
+            # here made Prompt Lab enforce=true turn intermittents and prose-shaped
+            # Lab prompts into UI-blocking errors (UAT 2026-07-14).
             detail = "; ".join(parse_errors) or "Structured response could not be parsed."
             warnings = (f"Structured response could not be parsed: {detail}",)
-            if cfg.enforce:
-                raise RuntimeError(f"Structured agent response failed validation: {detail}")
             return text, None, warnings
         if web_search_trace:
             structured = _filter_structured_sources(structured, web_search_trace)

@@ -132,7 +132,8 @@ def test_non_section_draft_skips_structured_parsing(mock_build: MagicMock) -> No
 @patch("civilai_agent.runner.build_civil_analyst_agent")
 def test_section_draft_parse_failure_returns_warning_not_crash(mock_build: MagicMock) -> None:
     agent = MagicMock()
-    agent.return_value = "Plain prose without JSON."
+    # Both attempts return prose — soft-warn, keep body for the FE message fallback.
+    agent.side_effect = ["Plain prose without JSON.", "Still not JSON."]
     agent.model.config = {}
     mock_build.return_value = agent
 
@@ -140,5 +141,47 @@ def test_section_draft_parse_failure_returns_warning_not_crash(mock_build: Magic
 
     assert response.artifacts == ()
     assert response.structured_draft is None
-    assert response.message == "Plain prose without JSON."
+    assert response.message == "Still not JSON."
+    assert any("could not be parsed" in w.lower() for w in response.guardrail_warnings)
+    assert agent.call_count == 2
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_section_draft_parse_failure_retries_then_succeeds(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.side_effect = ["# Markdown heading\n\nProse only.", _structured_json()]
+    agent.model.config = {"model_id": "test-model"}
+    mock_build.return_value = agent
+
+    response = run_agent(_context())
+
+    assert agent.call_count == 2
+    assert response.structured_draft is not None
+    assert response.message == "The parcel is zoned LI."
+    assert response.artifacts[0].body == "The parcel is zoned LI."
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_section_draft_enforce_true_does_not_hard_fail_on_parse_miss(
+    mock_build: MagicMock,
+) -> None:
+    agent = MagicMock()
+    agent.side_effect = ["# Parcel\n\nSite is in Travis County.", "# Parcel\n\nRetry prose."]
+    agent.model.config = {}
+    mock_build.return_value = agent
+
+    context = _context().model_copy(
+        update={
+            "guardrails": {
+                "forbiddenPhrases": ["will-serve"],
+                "requiredDisclaimers": [],
+                "enforceGuardrails": True,
+            }
+        }
+    )
+    response = run_agent(context)
+
+    assert response.artifacts == ()
+    assert response.structured_draft is None
+    assert "Travis County" in response.message or "Retry prose" in response.message
     assert any("could not be parsed" in w.lower() for w in response.guardrail_warnings)

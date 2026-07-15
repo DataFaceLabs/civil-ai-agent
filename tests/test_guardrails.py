@@ -30,15 +30,16 @@ def test_structured_parse_failure_warns_when_not_enforcing() -> None:
     assert any("could not be parsed" in w.lower() for w in warnings)
 
 
-def test_structured_parse_failure_raises_when_enforcing() -> None:
-    import pytest
-
-    with pytest.raises(RuntimeError, match="Structured agent response failed validation"):
-        finalize_text_output(
-            text="not json",
-            guardrails=GuardrailConfig(enforce=True),
-            structured_mode=True,
-        )
+def test_structured_parse_failure_soft_warns_even_when_enforcing() -> None:
+    # enforceGuardrails applies to content policy after a successful parse, not to
+    # JSON/schema format failures (those soft-warn so Lab enforce=true doesn't hard-crash).
+    _, structured, warnings = finalize_text_output(
+        text="not json",
+        guardrails=GuardrailConfig(enforce=True),
+        structured_mode=True,
+    )
+    assert structured is None
+    assert any("could not be parsed" in w.lower() for w in warnings)
 
 
 def test_disclaimer_not_required_outside_configured_sections() -> None:

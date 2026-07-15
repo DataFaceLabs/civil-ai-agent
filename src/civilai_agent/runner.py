@@ -118,21 +118,50 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
         model_id=context.model_id,
         temperature=context.temperature if context.temperature is not None else 0.2,
     )
-    raw = agent(user_prompt)
-    message = _extract_message(raw)
-    elapsed_ms = int((time.perf_counter() - started) * 1000)
-    input_tokens, output_tokens = extract_token_usage(raw)
-
     session = get_search_session()
     use_structured = context.workflow == AgentWorkflow.SECTION_DRAFT
-    web_search_trace = session.get_trace()
-    display, structured, warnings = finalize_text_output(
-        text=message,
-        guardrails=_resolved_guardrails(context),
-        web_search_trace=web_search_trace if web_search_trace else None,
-        structured_mode=use_structured,
-        section_id=context.active_section_id,
-    )
+    guardrails = _resolved_guardrails(context)
+
+    prompt = user_prompt
+    message = ""
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    display = ""
+    structured = None
+    warnings: tuple[str, ...] = ()
+
+    # One retry on structured-parse miss (mirrors pipeline/render.py). Empty or
+    # prose-shaped finals are common when Lab prompts ask for markdown while the
+    # runner still requires the JSON contract.
+    for attempt in range(2 if use_structured else 1):
+        raw = agent(prompt)
+        message = _extract_message(raw)
+        in_tok, out_tok = extract_token_usage(raw)
+        if isinstance(in_tok, int):
+            input_tokens = (input_tokens or 0) + in_tok
+        if isinstance(out_tok, int):
+            output_tokens = (output_tokens or 0) + out_tok
+
+        web_search_trace = session.get_trace()
+        display, structured, warnings = finalize_text_output(
+            text=message,
+            guardrails=guardrails,
+            web_search_trace=web_search_trace if web_search_trace else None,
+            structured_mode=use_structured,
+            section_id=context.active_section_id,
+        )
+        if structured is not None or not use_structured:
+            break
+        if attempt == 0:
+            detail = "; ".join(warnings) or "structured response could not be parsed"
+            prompt = (
+                f"{user_prompt}\n\nYour previous response failed structured validation "
+                f"({detail}). Respond again with ONLY the JSON object "
+                f'(keys: suggested_language, caveats, verification_steps, data_gaps, '
+                f"sources) — no markdown headings and no prose outside the JSON."
+            )
+
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
 
     artifacts: list[AgentArtifact] = []
     if structured is not None:
