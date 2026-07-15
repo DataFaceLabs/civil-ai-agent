@@ -100,6 +100,55 @@ def test_will_serve_affirmative_claim_still_flagged() -> None:
     assert any("forbidden phrase: 'will-serve'" in w for w in warnings)
 
 
+def test_will_serve_affirmative_commitment_now_flagged() -> None:
+    # Tightening: an affirmative issuance ("issued a will-serve commitment") is an
+    # overclaim. The old noun-based safe markers let this slip; it must be caught now.
+    output = SectionDraftOutput(
+        suggested_language="The utility issued a will-serve commitment for the property."
+    )
+    warnings = evaluate_structured_guardrails(output, DEFAULT_GUARDRAILS, section_id="utilities")
+    assert any("forbidden phrase: 'will-serve'" in w for w in warnings)
+
+
+def test_guaranteed_capacity_contextual() -> None:
+    # Affirmative claim is flagged; negated/cautionary form is not.
+    flagged = evaluate_structured_guardrails(
+        SectionDraftOutput(suggested_language="The site has guaranteed capacity for 200 LUEs."),
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert any("forbidden phrase: 'guaranteed capacity'" in w for w in flagged)
+
+    safe = evaluate_structured_guardrails(
+        SectionDraftOutput(
+            suggested_language="Coverage does not indicate guaranteed capacity for the parcel."
+        ),
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert not any("forbidden phrase: 'guaranteed capacity'" in w for w in safe)
+
+
+def test_confirmed_service_commitment_contextual() -> None:
+    flagged = evaluate_structured_guardrails(
+        SectionDraftOutput(
+            suggested_language="There is a confirmed service commitment from the city."
+        ),
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert any("forbidden phrase: 'confirmed service commitment'" in w for w in flagged)
+
+    safe = evaluate_structured_guardrails(
+        SectionDraftOutput(
+            suggested_language="There is no confirmed service commitment on record."
+        ),
+        DEFAULT_GUARDRAILS,
+        section_id="utilities",
+    )
+    assert not any("forbidden phrase: 'confirmed service commitment'" in w for w in safe)
+
+
 def test_disclaimer_satisfied_by_exact_text() -> None:
     # Backward compat: the literal sentence still satisfies the check.
     warnings = evaluate_guardrails(
