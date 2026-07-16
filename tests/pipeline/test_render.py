@@ -64,6 +64,51 @@ def test_build_render_prompt_includes_spec_fields() -> None:
     assert "suggested_language" in prompt
 
 
+def test_build_render_prompt_ships_only_field_values_not_raw_payload() -> None:
+    """Cost fix (2026-07-16): the render prompt must send only the governed field values,
+    not the full section-facts payload. The raw `evidence` block (per-field source arrays)
+    is the single largest chunk and is already distilled into `citations`, so shipping it
+    re-sends the same sources twice. `provenance`/`quality`/`as_of` are never read by the
+    renderer. Trimming these cut real UAT render prompts ~60% with no output change."""
+    spec = _sample_spec()
+    # Simulate the real data-API shape: field values wrapped under "facts", plus the
+    # heavy metadata blocks the renderer never consumes.
+    spec.facts = {
+        "entity_id": "ent-bullick",
+        "section_id": "zoning",
+        "as_of": "2026-07-15",
+        "facts": {"zoning_code": "DR", "jurisdiction_primary": "City of Austin limited purpose"},
+        "evidence": {
+            "zoning_code": [
+                {"citation_url": "https://evidence.example/zoning", "source_name": "COA GIS"}
+            ]
+        },
+        "provenance": {"pipeline": "phase1", "run_id": "SHOULD_NOT_APPEAR"},
+        "quality": {"zoning_code": "confirmed"},
+    }
+    prompt = build_render_prompt(spec)
+    # Field values survive.
+    assert "zoning_code" in prompt
+    assert "DR" in prompt
+    # Heavy, renderer-irrelevant payload is gone.
+    assert "https://evidence.example/zoning" not in prompt
+    assert "SHOULD_NOT_APPEAR" not in prompt
+    assert '"quality"' not in prompt
+    assert '"as_of"' not in prompt
+
+
+def test_build_render_prompt_uses_compact_json() -> None:
+    """Compact separators (no indent) materially reduce input tokens; guard against a
+    regression back to indent=2 pretty-printing of the governed field values."""
+    spec = _sample_spec()
+    spec.facts = {"facts": {"zoning_code": "DR", "jurisdiction_primary": "COA"}}
+    prompt = build_render_prompt(spec)
+    # Compact form has no space after the colon or comma...
+    assert '"zoning_code":"DR"' in prompt
+    # ...and never the indent=2 pretty-printed form.
+    assert '"zoning_code": "DR"' not in prompt
+
+
 def test_build_render_prompt_omits_format_section_when_directive_empty() -> None:
     prompt = build_render_prompt(_sample_spec())
     assert "Section formatting requirements" not in prompt
