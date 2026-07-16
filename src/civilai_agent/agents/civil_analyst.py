@@ -10,18 +10,25 @@ from civilai_agent.config import settings
 from civilai_agent.tools.facts import (
     get_provenance,
     get_section_facts,
-    get_site_payload,
     resolve_parcel,
     run_determinations,
 )
 from civilai_agent.tools.web_search_tool import web_search_deduped
 
+# NOTE: get_site_payload is deliberately NOT in this agent's toolset. It returns the full
+# multi-section FE SitePayload (~30k tokens for a real entity), and the Strands tool loop
+# resends every tool result on each subsequent turn -- so one get_site_payload call was
+# compounding to tens of thousands of input tokens per draft (the dominant driver of the
+# 2026-07 cost spike). A single-section draft only needs that section's governed facts
+# (get_section_facts) plus determinations; cross-section context is not required. The tool
+# function still exists in tools.facts for any caller that genuinely needs it.
 CIVIL_ANALYST_SYSTEM_PROMPT = """
 You are a civil feasibility analyst for land development projects in the Austin metroplex.
 
 Rules:
-- Always use resolve_parcel, get_section_facts, get_site_payload, and run_determinations
-  before drafting conclusions when entity_id or parcel context is available.
+- When entity_id is available, use get_section_facts for the active section and
+  run_determinations before drafting conclusions. Call resolve_parcel only when entity_id
+  is not already provided. Fetch only the data the active section needs.
 - Never perform the same external web search twice; web_search_deduped rejects duplicates.
 - Utility service boundaries indicate coverage only — never claim capacity or will-serve.
 - Do not invent facts when fields are empty or unavailable; state uncertainty explicitly.
@@ -57,7 +64,6 @@ def build_civil_analyst_agent(
         tools=[
             resolve_parcel,
             get_section_facts,
-            get_site_payload,
             run_determinations,
             get_provenance,
             web_search_deduped,

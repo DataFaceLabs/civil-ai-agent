@@ -209,7 +209,6 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
         tools_used=(
             "resolve_parcel",
             "get_section_facts",
-            "get_site_payload",
             "run_determinations",
             "web_search_deduped",
         ),
