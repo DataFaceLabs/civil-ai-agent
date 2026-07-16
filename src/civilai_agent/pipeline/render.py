@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import Any
 
 from strands import Agent
@@ -131,23 +132,65 @@ def build_renderer_agent(
     )
 
 
+@dataclass(frozen=True)
+class RenderResult:
+    """A render's structured output plus its token usage.
+
+    Pipeline sections previously reported zero tokens because the renderer never
+    surfaced usage the way the legacy tool-loop path does -- so per-draft cost on the
+    pipeline was invisible. Carrying it here lets the pipeline record real telemetry.
+    """
+
+    output: SectionDraftOutput
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    model_id: str | None = None
+
+
+def _token_usage(raw: Any) -> tuple[int | None, int | None]:
+    """Best-effort (input, output) token counts from a Strands AgentResult."""
+    usage = getattr(getattr(raw, "metrics", None), "accumulated_usage", None)
+    if not isinstance(usage, dict):
+        return None, None
+    input_tokens = usage.get("inputTokens")
+    output_tokens = usage.get("outputTokens")
+    return (
+        input_tokens if isinstance(input_tokens, int) else None,
+        output_tokens if isinstance(output_tokens, int) else None,
+    )
+
+
+def _agent_model_id(agent: Agent) -> str | None:
+    config = getattr(getattr(agent, "model", None), "config", None)
+    if isinstance(config, dict):
+        value = config.get("model_id")
+        return value if isinstance(value, str) else None
+    return None
+
+
 def render_draft(
     spec: DraftSpec,
     *,
     format_directive: str = "",
     tenant_system_prompt: str = "",
     model_id: str | None = None,
-) -> SectionDraftOutput:
+) -> RenderResult:
     """Render the spec with one LLM call; retry once on structured-parse failure.
 
     The retry re-sends the same prompt with the parse error appended so the model
-    can correct its JSON. A second failure raises — never loop unbounded.
+    can correct its JSON. A second failure raises — never loop unbounded. Token usage
+    is summed across attempts so a retry's cost is not lost.
     """
     agent = build_renderer_agent(model_id=model_id, tenant_system_prompt=tenant_system_prompt)
     prompt = build_render_prompt(spec, format_directive=format_directive)
     detail = ""
+    input_total = 0
+    output_total = 0
     for attempt in range(2):
         raw = agent(prompt)
+        in_tokens, out_tokens = _token_usage(raw)
+        input_total += in_tokens or 0
+        output_total += out_tokens or 0
         text = _message_from_result(raw)
         _, structured, warnings = finalize_text_output(
             text=text,
@@ -155,7 +198,12 @@ def render_draft(
             section_id=spec.section_id,
         )
         if structured is not None:
-            return structured
+            return RenderResult(
+                output=structured,
+                input_tokens=input_total or None,
+                output_tokens=output_total or None,
+                model_id=_agent_model_id(agent),
+            )
         detail = "; ".join(warnings) or "structured response could not be parsed"
         if attempt == 0:
             prompt = (

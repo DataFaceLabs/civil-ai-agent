@@ -19,6 +19,7 @@ from civilai_agent.pipeline.finalize import (
     finalize_pipeline_response,
 )
 from civilai_agent.pipeline.gates import zero_fact_gate
+from civilai_agent.pipeline.specs import DraftSpec
 from civilai_agent.tools.data_client import DataApiClient
 
 
@@ -39,6 +40,8 @@ def _response_from_structured(
     branch_id: str | None = None,
     latency_ms: int | None = None,
     model_id: str | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
 ) -> AgentResponse:
     metadata: dict[str, object] = {
         "caveats": list(structured.caveats),
@@ -64,9 +67,43 @@ def _response_from_structured(
             tools_used=trace_tools,
             model_id=model_id,
             latency_ms=latency_ms,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
         ),
         structured_draft=structured.model_dump(),
         guardrail_warnings=guardrail_warnings,
+    )
+
+
+def _render_and_respond(
+    spec: DraftSpec,
+    *,
+    section_id: str,
+    format_directive: str,
+    tenant_system_prompt: str,
+) -> AgentResponse:
+    """Single LLM render + response assembly, recording latency and token telemetry.
+
+    Every LLM-rendered pipeline section funnels through here so token usage is captured
+    uniformly (previously the pipeline reported zero tokens — see render.RenderResult).
+    """
+    from civilai_agent.pipeline.render import render_draft
+
+    started = time.perf_counter()
+    rendered = render_draft(
+        spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
+    )
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    return _response_from_structured(
+        rendered.output,
+        section_id=section_id,
+        pipeline_path="render",
+        trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
+        branch_id=spec.branch_id,
+        latency_ms=elapsed_ms,
+        model_id=rendered.model_id,
+        input_tokens=rendered.input_tokens,
+        output_tokens=rendered.output_tokens,
     )
 
 
@@ -78,7 +115,7 @@ def _run_zoning_pipeline(
     tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.zoning import dispatch_zoning
-    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.render import build_render_prompt
     from civilai_agent.pipeline.templates.zoning import render_zoning_tier0
 
     spec = dispatch_zoning(ctx)
@@ -122,18 +159,11 @@ def _run_zoning_pipeline(
             ),
         )
     else:
-        started = time.perf_counter()
-        structured = render_draft(
-            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
-        )
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        response = _response_from_structured(
-            structured,
+        response = _render_and_respond(
+            spec,
             section_id="zoning",
-            pipeline_path="render",
-            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
-            branch_id=spec.branch_id,
-            latency_ms=elapsed_ms,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
         )
 
     response = append_fact_echo_warnings(response, spec)
@@ -148,7 +178,7 @@ def _run_flood_pipeline(
     tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.flood import dispatch_flood
-    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.render import build_render_prompt
     from civilai_agent.pipeline.templates.flood import render_flood_tier1
 
     spec = dispatch_flood(ctx)
@@ -192,18 +222,11 @@ def _run_flood_pipeline(
             ),
         )
     else:
-        started = time.perf_counter()
-        structured = render_draft(
-            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
-        )
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        response = _response_from_structured(
-            structured,
+        response = _render_and_respond(
+            spec,
             section_id="flood",
-            pipeline_path="render",
-            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
-            branch_id=spec.branch_id,
-            latency_ms=elapsed_ms,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
         )
 
     response = append_fact_echo_warnings(response, spec)
@@ -218,7 +241,7 @@ def _run_utilities_pipeline(
     tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.utilities import dispatch_utilities
-    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.render import build_render_prompt
 
     spec = dispatch_utilities(ctx)
 
@@ -252,18 +275,11 @@ def _run_utilities_pipeline(
             ),
         )
 
-    started = time.perf_counter()
-    structured = render_draft(
-        spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
-    )
-    elapsed_ms = int((time.perf_counter() - started) * 1000)
-    response = _response_from_structured(
-        structured,
+    response = _render_and_respond(
+        spec,
         section_id="utilities",
-        pipeline_path="render",
-        trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
-        branch_id=spec.branch_id,
-        latency_ms=elapsed_ms,
+        format_directive=format_directive,
+        tenant_system_prompt=tenant_system_prompt,
     )
     response = append_fact_echo_warnings(response, spec)
     return finalize_pipeline_response(response)
@@ -277,7 +293,7 @@ def _run_environmental_pipeline(
     tenant_system_prompt: str = "",
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.environmental import dispatch_environmental
-    from civilai_agent.pipeline.render import build_render_prompt, render_draft
+    from civilai_agent.pipeline.render import build_render_prompt
     from civilai_agent.pipeline.templates.environmental import render_environmental_tier1
 
     spec = dispatch_environmental(ctx)
@@ -321,22 +337,75 @@ def _run_environmental_pipeline(
             ),
         )
     else:
-        started = time.perf_counter()
-        structured = render_draft(
-            spec, format_directive=format_directive, tenant_system_prompt=tenant_system_prompt
-        )
-        elapsed_ms = int((time.perf_counter() - started) * 1000)
-        response = _response_from_structured(
-            structured,
+        response = _render_and_respond(
+            spec,
             section_id="environmental",
-            pipeline_path="render",
-            trace_tools=("pipeline_fetch", "pipeline_dispatch", "pipeline_render"),
-            branch_id=spec.branch_id,
-            latency_ms=elapsed_ms,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
         )
 
     response = append_fact_echo_warnings(response, spec)
     return finalize_pipeline_response(response)
+
+
+def _run_descriptive_pipeline(
+    ctx: SectionContext,
+    section_id: str,
+    *,
+    dry_run: bool,
+    format_directive: str = "",
+    tenant_system_prompt: str = "",
+) -> AgentResponse:
+    """Render-only path for descriptive sections (parcel, access) — no branch logic."""
+    from civilai_agent.pipeline.dispatch.descriptive import dispatch_descriptive
+    from civilai_agent.pipeline.render import build_render_prompt
+
+    spec = dispatch_descriptive(ctx, section_id)
+
+    if dry_run:
+        prompt = build_render_prompt(spec, format_directive=format_directive)
+        message = (
+            f"[pipeline dry-run] would render {section_id} branch={spec.branch_id} "
+            f"tier={spec.tier}\n{prompt}"
+        )
+        return AgentResponse(
+            message=message,
+            trace_summary=TraceSummary(
+                tools_used=(
+                    "pipeline_fetch",
+                    "pipeline_dispatch",
+                    "pipeline_render_dry_run",
+                ),
+            ),
+            artifacts=(
+                AgentArtifact(
+                    type="draft_section",
+                    title=f"Draft — {section_id}",
+                    status="partial",
+                    section_id=section_id,
+                    body=message,
+                    metadata={
+                        "pipeline_path": "render",
+                        "branch_id": spec.branch_id,
+                    },
+                ),
+            ),
+        )
+
+    response = _render_and_respond(
+        spec,
+        section_id=section_id,
+        format_directive=format_directive,
+        tenant_system_prompt=tenant_system_prompt,
+    )
+    response = append_fact_echo_warnings(response, spec)
+    return finalize_pipeline_response(response)
+
+
+# Descriptive sections migrated off the legacy tool loop onto the single-render pipeline
+# path. They present governed facts under the tenant template (no safety-gated verdict), so
+# they share one render-only dispatcher instead of a bespoke per-section one.
+_DESCRIPTIVE_SECTIONS = frozenset({"parcel", "access"})
 
 
 def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
@@ -392,6 +461,15 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
     if section_id == "environmental":
         return _run_environmental_pipeline(
             ctx,
+            dry_run=dry_run,
+            format_directive=format_directive,
+            tenant_system_prompt=tenant_system_prompt,
+        )
+
+    if section_id in _DESCRIPTIVE_SECTIONS:
+        return _run_descriptive_pipeline(
+            ctx,
+            section_id,
             dry_run=dry_run,
             format_directive=format_directive,
             tenant_system_prompt=tenant_system_prompt,

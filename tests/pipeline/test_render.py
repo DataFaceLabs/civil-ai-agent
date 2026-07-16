@@ -183,10 +183,10 @@ def test_render_draft_parses_canned_response(mock_build: MagicMock) -> None:
     agent.return_value = _structured_json()
     mock_build.return_value = agent
 
-    output = render_draft(_sample_spec(), model_id="test-model")
+    result = render_draft(_sample_spec(), model_id="test-model")
 
-    assert "DR" in output.suggested_language
-    assert output.data_gaps == ("proposed_use not specified",)
+    assert "DR" in result.output.suggested_language
+    assert result.output.data_gaps == ("proposed_use not specified",)
     mock_build.assert_called_once_with(model_id="test-model", tenant_system_prompt="")
     agent.assert_called_once()
     prompt = agent.call_args[0][0]
@@ -213,7 +213,23 @@ def test_render_draft_recovers_on_retry(mock_build: MagicMock) -> None:
     agent.side_effect = ["Plain prose without JSON.", _structured_json()]
     mock_build.return_value = agent
 
-    output = render_draft(_sample_spec())
+    result = render_draft(_sample_spec())
 
     assert agent.call_count == 2
-    assert "DR" in output.suggested_language
+    assert "DR" in result.output.suggested_language
+
+
+@patch("civilai_agent.pipeline.render.build_renderer_agent")
+def test_render_draft_records_token_usage(mock_build: MagicMock) -> None:
+    """Telemetry: pipeline renders previously reported zero tokens (per-draft cost was
+    invisible). RenderResult must surface the usage Strands returns."""
+    raw = MagicMock()
+    raw.message = _structured_json()
+    raw.metrics.accumulated_usage = {"inputTokens": 1234, "outputTokens": 567}
+    agent = MagicMock(return_value=raw)
+    mock_build.return_value = agent
+
+    result = render_draft(_sample_spec())
+
+    assert result.input_tokens == 1234
+    assert result.output_tokens == 567
