@@ -7,6 +7,7 @@ import re
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.pipeline.dispatch.zoning import STEM_B_COUNTY, STEM_C_ETJ
 from civilai_agent.pipeline.specs import DraftSpec
+from civilai_agent.pipeline.templates.format import headed_section
 
 _TIER0_BRANCHES = frozenset({"zoning.county_no_zoning", "zoning.etj"})
 
@@ -57,9 +58,11 @@ def render_zoning_tier0(spec: DraftSpec) -> SectionDraftOutput:
         raise ValueError(msg)
 
     if spec.branch_id == "zoning.county_no_zoning":
-        language = STEM_B_COUNTY.format(county=_county_name(spec.slots))
+        statement = STEM_B_COUNTY.format(county=_county_name(spec.slots))
     else:
-        language = STEM_C_ETJ.format(city=_etj_city(spec.slots))
+        statement = STEM_C_ETJ.format(city=_etj_city(spec.slots))
+
+    language = headed_section("Zoning", [("Zoning Determination", statement)])
 
     return SectionDraftOutput(
         suggested_language=language,
