@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.pipeline.specs import DraftSpec
+from civilai_agent.pipeline.templates.format import headed_section
 
 _TIER1_BRANCHES = frozenset({"flood.zone_x"})
 
@@ -80,10 +81,12 @@ def render_flood_tier1(spec: DraftSpec) -> SectionDraftOutput:
         msg = f"Tier-1 template requires tier=1, got {spec.tier}"
         raise ValueError(msg)
 
-    language = _panel_sentence(spec)
+    statement = _panel_sentence(spec)
     floodway = spec.slots.get("floodway_flag")
     if floodway == "false":
-        language += " Regulatory floodway is not mapped on the parcel."
+        statement += " Regulatory floodway is not mapped on the parcel."
+
+    language = headed_section("Flood", [("FEMA Flood Zone", statement)])
 
     caveats: list[str] = []
     if any(m.name == "firm_panel_id" for m in spec.missing_inputs):

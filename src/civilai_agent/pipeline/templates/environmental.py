@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.pipeline.specs import DraftSpec
+from civilai_agent.pipeline.templates.format import headed_section
 
 _TIER1_BRANCHES = frozenset({"environmental.edwards_outside"})
 
@@ -62,7 +63,7 @@ def _cwqz_paragraph(spec: DraftSpec) -> str | None:
             detail += ", Travis County Code §482.941)"
             parts.append(detail)
         else:
-            parts.append("(Travis County Code §482.941).")
+            parts.append("(Travis County Code §482.941)")
         return " ".join(parts) + "."
 
     if waterway:
@@ -114,19 +115,18 @@ def render_environmental_tier1(spec: DraftSpec) -> SectionDraftOutput:
         msg = f"Tier-1 template requires tier=1, got {spec.tier}"
         raise ValueError(msg)
 
-    paragraphs = [STEM_EA_OUTSIDE]
-    watershed = _watershed_paragraph(spec)
-    if watershed:
-        paragraphs.append(watershed)
-    cwqz = _cwqz_paragraph(spec)
-    if cwqz:
-        paragraphs.append(cwqz)
-    ehz = _ehz_paragraph(spec)
-    if ehz:
-        paragraphs.append(ehz)
+    language = headed_section(
+        "Environment",
+        [
+            ("Edwards Aquifer", STEM_EA_OUTSIDE),
+            ("Watershed", _watershed_paragraph(spec) or ""),
+            ("Critical Water Quality Zone", _cwqz_paragraph(spec) or ""),
+            ("Erosion Hazard", _ehz_paragraph(spec) or ""),
+        ],
+    )
 
     return SectionDraftOutput(
-        suggested_language="\n\n".join(paragraphs),
+        suggested_language=language,
         caveats=(),
         verification_steps=_verification_steps(spec),
         data_gaps=_data_gaps(spec),
