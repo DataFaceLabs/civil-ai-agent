@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.models.context import AgentWorkflow, WorkbenchContext
 from civilai_agent.pipeline.fetch import SectionContext
+from civilai_agent.pipeline.render import RenderResult
 from civilai_agent.pipeline.run import run_section_draft
 
 
@@ -48,8 +49,10 @@ def test_flood_zone_x_uses_template_path() -> None:
 
 @patch("civilai_agent.pipeline.render.render_draft")
 def test_flood_sfha_live_calls_renderer(mock_render: MagicMock) -> None:
-    mock_render.return_value = SectionDraftOutput(
-        suggested_language="The property lies within FEMA Zone AE."
+    mock_render.return_value = RenderResult(
+        output=SectionDraftOutput(suggested_language="The property lies within FEMA Zone AE."),
+        input_tokens=3200,
+        output_tokens=900,
     )
     ctx = SectionContext(
         entity_id="ent-1",

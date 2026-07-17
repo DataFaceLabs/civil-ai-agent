@@ -10,6 +10,7 @@ from civilai_agent.models.context import (
     WorkbenchContext,
 )
 from civilai_agent.pipeline.fetch import SectionContext
+from civilai_agent.pipeline.render import RenderResult
 from civilai_agent.pipeline.run import run_section_draft
 
 
@@ -154,8 +155,12 @@ def test_zoning_tier2_live_threads_tenant_system_prompt(mock_render: MagicMock) 
     subsections with headings... Emit field data facts in bold' mandate) reaches the
     renderer, not just context.request. This is the finding that the pipeline was silently
     dropping the tenant's system prompt entirely in favor of its own hardcoded one."""
-    mock_render.return_value = SectionDraftOutput(
-        suggested_language="The property is zoned CS (Commercial Services)."
+    mock_render.return_value = RenderResult(
+        output=SectionDraftOutput(
+            suggested_language="The property is zoned CS (Commercial Services)."
+        ),
+        input_tokens=3000,
+        output_tokens=800,
     )
     ctx = SectionContext(
         entity_id="ent-1",
@@ -188,8 +193,12 @@ def test_zoning_tier2_live_threads_tenant_system_prompt(mock_render: MagicMock) 
 
 @patch("civilai_agent.pipeline.render.render_draft")
 def test_zoning_tier2_live_calls_renderer(mock_render: MagicMock) -> None:
-    mock_render.return_value = SectionDraftOutput(
-        suggested_language="The property is zoned CS (Commercial Services)."
+    mock_render.return_value = RenderResult(
+        output=SectionDraftOutput(
+            suggested_language="The property is zoned CS (Commercial Services)."
+        ),
+        input_tokens=3000,
+        output_tokens=800,
     )
     ctx = SectionContext(
         entity_id="ent-1",
