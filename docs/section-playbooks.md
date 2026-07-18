@@ -43,7 +43,7 @@ type for use throughout.
 ## Section 2.2 — Site Characteristics
 
 **Required facts:**
-- Min/max elevation (from `terrain_field_facts` or civil-ai-be, or fetched from USGS 3DEP)
+- Min/max elevation (from `terrain_field_facts` or `civil-ai-data`, or fetched from USGS 3DEP)
 - Slope range and slope table (0–5%, 5–10%, 10–15%, 15%+)
 - Soil types from SSURGO: map unit symbol, series name, coverage %, hydrologic soil group, drainage class
 - Ecoregion (determined by county: Travis/Williamson/Hays = Edwards Plateau / Blackland Prairie; Burnet = Post Oak Savanna)

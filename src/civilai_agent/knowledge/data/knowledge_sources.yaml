@@ -1,0 +1,344 @@
+# Seed registry of unstructured / semi-structured knowledge sources for the Civil Analyst
+# agent. Not exhaustive -- a starting spread across all nine categories. Add entries by
+# following docs/agent-knowledge-sources.md. URLs are omitted (null) where not yet pinned;
+# the structure is complete and every field is optional except the required core
+# (source_id, name, source_category, authority_level).
+#
+# INVARIANT (enforced in code, not just here): authority_level of prior_report / secondary
+# / alert can never set can_support_final_finding: true -- the registry refuses to load it.
+#
+# last_checked_at on scheduled sources is a seed placeholder; the real refresh job updates
+# it. Staleness is computed from it against refresh_cadence.
+
+sources:
+  # --- 1. regulatory_authority ---------------------------------------------------------
+  - source_id: coa_ldc
+    name: City of Austin Land Development Code
+    description: Adopted Title 25 Land Development Code governing zoning, site plans, subdivision, drainage, and environment within Austin jurisdiction.
+    source_category: regulatory_authority
+    authority_level: regulatory
+    jurisdiction: City of Austin
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [zoning, platting, impervious_cover, drainage, water_quality, environmental_constraints, easements_setbacks, permitting]
+    publisher: City of Austin
+    url: null
+    document_type: municipal_code
+    file_format: html
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    version: "2026-06"
+    confidence_default: 0.9
+    citation_required: true
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: coa_drainage_criteria_manual
+    name: City of Austin Drainage Criteria Manual
+    source_category: regulatory_authority
+    authority_level: regulatory
+    jurisdiction: City of Austin
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [drainage, floodplain, water_quality]
+    publisher: City of Austin Watershed Protection
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.9
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: coa_environmental_criteria_manual
+    name: City of Austin Environmental Criteria Manual
+    source_category: regulatory_authority
+    authority_level: regulatory
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [environmental_constraints, water_quality, watershed]
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.9
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: travis_county_subdivision_regs
+    name: Travis County Subdivision Regulations
+    source_category: regulatory_authority
+    authority_level: regulatory
+    applicable_counties: [travis]
+    applicable_domains: [platting, drainage, transportation, permitting]
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.88
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: lcra_hlwo
+    name: LCRA Highland Lakes Watershed Ordinance
+    source_category: regulatory_authority
+    authority_level: regulatory
+    jurisdiction: LCRA
+    applicable_counties: [travis, burnet, llano]
+    applicable_domains: [watershed, water_quality, impervious_cover, drainage]
+    publisher: Lower Colorado River Authority
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.88
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: tac_ossf_ch285
+    name: Texas Administrative Code Title 30 Ch. 285 (On-Site Sewage Facilities)
+    source_category: regulatory_authority
+    authority_level: regulatory
+    applicable_domains: [utilities, environmental_constraints, permitting]
+    publisher: TCEQ
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.9
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  - source_id: fema_nfip_guidance
+    name: FEMA NFIP / Floodplain Management Guidance
+    description: National floodplain-management guidance. Geography-agnostic (applies wherever an NFIP determination is relevant).
+    source_category: regulatory_authority
+    authority_level: regulatory
+    applicable_domains: [floodplain, drainage]
+    publisher: FEMA
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.85
+    can_support_final_finding: true
+    requires_human_confirmation: false
+
+  # --- 2. agency_guidance --------------------------------------------------------------
+  - source_id: austin_dsd_site_plan_guide
+    name: Austin Development Services Site Plan Application Guide
+    source_category: agency_guidance
+    authority_level: agency_guidance
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [permitting, zoning, drainage]
+    publisher: Austin Development Services Department
+    refresh_cadence: quarterly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.7
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  - source_id: travis_tnr_permit_guide
+    name: Travis County TNR Development Permit Guide
+    source_category: agency_guidance
+    authority_level: agency_guidance
+    applicable_counties: [travis]
+    applicable_domains: [permitting, transportation, drainage]
+    publisher: Travis County Transportation & Natural Resources
+    refresh_cadence: quarterly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.7
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  # --- 3. project_records --------------------------------------------------------------
+  - source_id: project_boundary_survey_template
+    name: Project Boundary Survey (per-project upload)
+    description: Placeholder for a project-specific boundary survey. Real entries are created per project at upload time.
+    source_category: project_records
+    authority_level: project_specific
+    applicable_domains: [easements_setbacks, platting, parcel_jurisdiction]
+    document_type: survey
+    file_format: pdf
+    refresh_cadence: on_upload
+    confidence_default: 0.8
+    citation_required: true
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  - source_id: project_will_serve_letter_template
+    name: Utility Will-Serve Letter (per-project upload)
+    description: A provider's will-serve letter for THIS project. Project-specific authority, but capacity/engineering judgment always needs PE confirmation.
+    source_category: project_records
+    authority_level: project_specific
+    applicable_domains: [utilities]
+    document_type: will_serve_letter
+    file_format: pdf
+    refresh_cadence: on_upload
+    confidence_default: 0.8
+    citation_required: true
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  - source_id: project_title_commitment_template
+    name: Title Commitment (per-project upload)
+    source_category: project_records
+    authority_level: project_specific
+    applicable_domains: [easements_setbacks, platting]
+    document_type: title_commitment
+    file_format: pdf
+    refresh_cadence: on_upload
+    confidence_default: 0.8
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  # --- 4. prior_reports ----------------------------------------------------------------
+  - source_id: prior_atxcivil_reports
+    name: Prior ATX Civil Feasibility Reports (corpus)
+    description: Historical ATX Civil studies + exhibits. PRECEDENT AND DRAFTING LANGUAGE ONLY -- never authority for a final determination.
+    source_category: prior_reports
+    authority_level: prior_report
+    applicable_domains: [zoning, platting, watershed, floodplain, drainage, utilities, transportation, fire_protection, environmental_constraints, permitting, recommendations]
+    document_type: feasibility_report
+    file_format: pdf
+    refresh_cadence: never
+    confidence_default: 0.5
+    citation_required: true
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  # --- 5. public_cases -----------------------------------------------------------------
+  - source_id: coa_open_data_site_plan_cases
+    name: City of Austin Open Data - Site Plan Cases
+    source_category: public_cases
+    authority_level: official_record
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [permitting, zoning, platting]
+    publisher: City of Austin Open Data Portal
+    document_type: case_dataset
+    file_format: json
+    refresh_cadence: weekly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.85
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  - source_id: fema_nfhl_firm_panels
+    name: FEMA National Flood Hazard Layer / FIRM Panels
+    source_category: public_cases
+    authority_level: official_record
+    applicable_domains: [floodplain]
+    publisher: FEMA
+    document_type: firm_panel
+    file_format: geojson
+    refresh_cadence: monthly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.9
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  - source_id: county_clerk_plat_records
+    name: County Clerk Plat & Deed Records
+    source_category: public_cases
+    authority_level: official_record
+    applicable_counties: [travis, williamson, hays, bastrop]
+    applicable_domains: [platting, easements_setbacks, parcel_jurisdiction]
+    document_type: plat_record
+    refresh_cadence: monthly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.85
+    can_support_final_finding: true
+    requires_human_confirmation: true
+
+  # --- 6. utility_provider_records -----------------------------------------------------
+  - source_id: austin_water_ser_requirements
+    name: Austin Water Service Extension Request Requirements
+    description: Published AW SER policy/requirements. Agency-guidance authority (a policy, not a project-specific commitment).
+    source_category: utility_provider_records
+    authority_level: agency_guidance
+    applicable_cities: [austin]
+    applicable_counties: [travis]
+    applicable_domains: [utilities]
+    publisher: Austin Water
+    refresh_cadence: quarterly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.7
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  - source_id: wcid17_service_policy
+    name: Travis County WCID 17 Service Policy
+    source_category: utility_provider_records
+    authority_level: agency_guidance
+    applicable_counties: [travis]
+    applicable_domains: [utilities]
+    publisher: Travis County WCID 17
+    refresh_cadence: quarterly
+    last_checked_at: 2026-07-01
+    confidence_default: 0.68
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  # --- 7. environmental_and_technical_references ---------------------------------------
+  - source_id: noaa_atlas14
+    name: NOAA Atlas 14 Precipitation-Frequency Data
+    description: Precipitation-frequency estimates used in drainage design. Official technical data; supports design explanation, not a legal determination on its own.
+    source_category: environmental_technical
+    authority_level: technical_reference
+    applicable_domains: [drainage, floodplain]
+    publisher: NOAA
+    document_type: technical_reference
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.6
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  - source_id: nrcs_web_soil_survey
+    name: USDA NRCS Web Soil Survey (SSURGO) Documentation
+    source_category: environmental_technical
+    authority_level: technical_reference
+    applicable_domains: [drainage, environmental_constraints]
+    publisher: USDA NRCS
+    refresh_cadence: on_version_change
+    last_checked_at: 2026-07-01
+    confidence_default: 0.6
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  # --- 8. secondary_explainers ---------------------------------------------------------
+  - source_id: engineering_firm_blogs
+    name: Civil Engineering Firm Blogs & Explainers
+    description: Background/terminology only. NEVER controlling authority in a feasibility report.
+    source_category: secondary_explainers
+    authority_level: secondary
+    applicable_domains: [drainage, floodplain, utilities, water_quality]
+    document_type: blog
+    file_format: html
+    refresh_cadence: never
+    confidence_default: 0.3
+    citation_required: false
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  # --- 9. alerts_and_public_notices ----------------------------------------------------
+  - source_id: travis_commissioners_court_agendas
+    name: Travis County Commissioners Court Agendas
+    description: Alerting layer only -- a pointer that something may be changing. Expires when stale unless it links to an adopted action.
+    source_category: alerts
+    authority_level: alert
+    applicable_counties: [travis]
+    applicable_domains: [permitting, transportation, drainage]
+    publisher: Travis County
+    document_type: agenda
+    refresh_cadence: weekly
+    last_checked_at: 2026-07-01
+    expiry_policy: 1
+    confidence_default: 0.2
+    citation_required: false
+    can_support_final_finding: false
+    requires_human_confirmation: true
+
+  - source_id: tceq_public_notices
+    name: TCEQ Public Notices (Edwards Aquifer / Water Quality)
+    source_category: alerts
+    authority_level: alert
+    applicable_domains: [water_quality, environmental_constraints]
+    publisher: TCEQ
+    document_type: notice
+    refresh_cadence: weekly
+    last_checked_at: 2026-07-01
+    expiry_policy: 1
+    confidence_default: 0.2
+    can_support_final_finding: false
+    requires_human_confirmation: true

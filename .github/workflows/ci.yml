@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gauntlet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PR base branch policy
+        if: github.event_name == 'pull_request'
+        run: |
+          base="${{ github.base_ref }}"
+          head="${{ github.head_ref }}"
+
+          if [[ "$base" == "develop" ]]; then
+            echo "PR base policy OK: base=develop"
+            exit 0
+          fi
+
+          if [[ "$base" == "main" && ( "$head" == release/* || "$head" == hotfix/* ) ]]; then
+            echo "PR base policy OK: $head -> main"
+            exit 0
+          fi
+
+          echo "PR base policy violation: base=$base head=$head"
+          echo "Use base=develop for feature/fix/chore work."
+          echo "Only release/* or hotfix/* branches may target main."
+          exit 1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Gauntlet
+        run: make gauntlet
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
