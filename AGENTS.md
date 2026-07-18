@@ -74,6 +74,19 @@ annotations, tests for anything that calls an external service (use `respx` for 
 mocking, no live network calls in tests), no bare `except: pass`, no speculative
 abstractions or unused feature flags.
 
+Branching: same convention as every repo in this workspace — branch off `develop`
+(`feature/*`/`chore/*`/`fix/*`), PR into `develop`; `develop` → `main` only for major
+milestones or a real bug fix, never on every merge. Never commit directly to `develop` or
+`main`.
+
+This repo's code is vendored into the platform Lambda by `civil-ai-platform/scripts/
+package-lambda.sh` (it copies `src/civilai_agent` off disk at build time — there is no
+separate deploy step for this repo alone). Since the 2026-07-18 release migration, that
+Lambda build should come from `civil-ai-platform`'s `main`, matching the platform repo's
+own branching note — see `RELEASE-MIGRATION-PLAN.md` in the Project-Landmark workspace
+root. No separate dev backend exists yet (that runbook's Phase 6), so any Lambda deploy
+touches the customer-facing environment regardless of which branch this repo is on.
+
 ## Code quality standards (2026-07-05 review baseline)
 
 These are enforced by `make gauntlet` (ruff check + format check + mypy strict + pytest)
