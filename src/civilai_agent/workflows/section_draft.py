@@ -17,9 +17,9 @@ Return your final section draft as a single JSON object (no markdown code fence)
 Only include "sources" entries for URLs returned by web_search_deduped in this run.
 Populate verification_steps and data_gaps from governed fields with status partial or unknown.
 
-suggested_language must use short paragraphs (1–3 sentences, blank lines between them),
+suggested_language must use short paragraphs (1-3 sentences, blank lines between them),
 paraphrase field values (do not paste multi-topic dumps), and never invent
-"(See Exhibit: …)" unless AVAILABLE_EXHIBITS lists that sheet. Scrub robotic stems such as
+"(See Exhibit: ...)" unless AVAILABLE_EXHIBITS lists that sheet. Scrub robotic stems such as
 "rule extraction pending" into honest verification gaps.
 
 If every governed-data tool call fails or returns no data for this entity, you MUST still
