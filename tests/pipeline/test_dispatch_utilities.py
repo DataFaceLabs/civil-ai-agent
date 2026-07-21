@@ -62,9 +62,7 @@ def test_gis_viewer_citations_and_stems_from_drawing_href() -> None:
         c.get("url") == viewer and c.get("source_name") == "Nearest water main"
         for c in spec.citations
     )
-    assert any(
-        f"[Nearest water main]({viewer})" in stem for stem in spec.stems
-    )
+    assert any(f"[Nearest water main]({viewer})" in stem for stem in spec.stems)
 
 
 def test_provider_distant_branch() -> None:
