@@ -64,6 +64,11 @@ def test_build_render_prompt_includes_spec_fields() -> None:
     assert "suggested_language" in prompt
 
 
+def test_renderer_system_prompt_requires_gis_viewer_markdown_hrefs() -> None:
+    assert "apps/mapviewer" in RENDERER_SYSTEM_PROMPT
+    assert "[source_name](url)" in RENDERER_SYSTEM_PROMPT
+
+
 def test_build_render_prompt_ships_only_field_values_not_raw_payload() -> None:
     """Cost fix (2026-07-16): the render prompt must send only the governed field values,
     not the full section-facts payload. The raw `evidence` block (per-field source arrays)

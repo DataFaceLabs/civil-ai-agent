@@ -32,6 +32,39 @@ def test_public_main_branch_when_centralized_sewer() -> None:
     assert "coverage" in spec.stems[0].lower()
 
 
+def test_gis_viewer_citations_and_stems_from_drawing_href() -> None:
+    viewer = (
+        "https://www.arcgis.com/apps/mapviewer/index.html"
+        "?url=https%3A%2F%2Fexample%2FMapServer%2F25&center=-97.7,30.2"
+    )
+    spec = dispatch_utilities(
+        SectionContext(
+            entity_id="ent-1",
+            section_id="utilities",
+            facts={
+                "facts": {
+                    "ossf_required": False,
+                    "water_provider": "Austin Water",
+                    "wastewater_provider": "Austin Water Wastewater",
+                    "ww_main_distance_ft": 50,
+                    "nearest_water_drawing_href": viewer,
+                },
+                "quality": {
+                    "flags": [
+                        "water_ccn_overlay_observed",
+                        "wastewater_ccn_overlay_observed",
+                    ]
+                },
+            },
+        )
+    )
+    assert any(
+        c.get("url") == viewer and c.get("source_name") == "Nearest water main"
+        for c in spec.citations
+    )
+    assert any(f"[Nearest water main]({viewer})" in stem for stem in spec.stems)
+
+
 def test_provider_distant_branch() -> None:
     spec = dispatch_utilities(
         SectionContext(
