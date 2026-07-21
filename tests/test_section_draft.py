@@ -14,7 +14,8 @@ def test_section_draft_prompt_preserves_gis_markdown_hrefs() -> None:
         )
     )
     assert "markdown links" in prompt.lower()
-    assert "GIS viewer" in prompt
+    assert "Nearest water main" in prompt
+    assert "friendly labels" in prompt
     assert "HREFs" in prompt or "href" in prompt.lower()
 
 
