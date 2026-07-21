@@ -22,16 +22,21 @@ Rules:
   re-decide feasibility or contradict the injected governed facts, slots, or determinations.
 - Include every required stem faithfully in suggested_language.
 - List every missing_input under verification_steps and/or data_gaps with its resolution path.
-- Utility service boundaries indicate coverage only — never claim capacity or will-serve.
+- Utility service boundaries indicate coverage only - never claim capacity or will-serve.
 - Do not invent facts when fields are empty; state uncertainty explicitly.
 - Produce concise, ATX Civil-style feasibility language.
+- Short paragraphs (1-3 sentences each) with blank lines between paragraphs in markdown.
+  One topic per paragraph cluster; paraphrase governed field values - never paste multi-topic
+  Compose dumps or robotic stems ("rule extraction pending", "Pending user input.").
+- Do not invent "(See Exhibit: ...)" callouts. Cite an exhibit only when AVAILABLE_EXHIBITS
+  (in governed field values or the formatting block) lists that sheet/map.
 - No tools are available; all context is injected below. Leave sources empty.
 - When Citations include ArcGIS Map Viewer URLs (apps/mapviewer), include each in
   suggested_language as a markdown link using the citation source_name as the label:
   [source_name](url). Do not omit these GIS viewer HREFs from the draft prose.
 - If a "Section formatting requirements" block is provided, follow its structure (subsection
   headings, order) using markdown headings in suggested_language. Treat it as a formatting
-  guide only — never source facts from it; governed facts, slots, and determinations above
+  guide only - never source facts from it; governed facts, slots, and determinations above
   remain the only authoritative content.
 """.strip()
 
@@ -77,7 +82,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
     stem_lines = "\n".join(f"- {stem}" for stem in spec.stems) or "- (none)"
     parts = [
         f"Render the {spec.section_id} section for entity {spec.entity_id}.",
-        f"Branch (already selected — do not re-decide): {spec.branch_id}",
+        f"Branch (already selected - do not re-decide): {spec.branch_id}",
         f"Tier: {spec.tier}",
         "",
         "Template slots:",
@@ -92,7 +97,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
         "Determinations:",
         _compact(spec.determinations),
         "",
-        "Citations (the only source list — cite from these):",
+        "Citations (the only source list - cite from these):",
         _compact(spec.citations),
         "",
         "Missing inputs (surface each in verification_steps and/or data_gaps):",
@@ -101,7 +106,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
     if format_directive.strip():
         parts += [
             "",
-            "Section formatting requirements (structure/style only — do not source facts "
+            "Section formatting requirements (structure/style only - do not source facts "
             "from this; governed facts, slots, and determinations above are authoritative):",
             format_directive.strip(),
         ]
@@ -114,7 +119,7 @@ def _renderer_system_prompt(tenant_system_prompt: str) -> str:
         return RENDERER_SYSTEM_PROMPT
     return (
         f"{RENDERER_SYSTEM_PROMPT}\n\n"
-        "Tenant drafting style requirements (style, tone, and format only — the rules above "
+        "Tenant drafting style requirements (style, tone, and format only - the rules above "
         "about governed facts, branches, and tools still control content; do not source facts "
         "from this block):\n"
         f"{tenant_system_prompt.strip()}"
@@ -127,7 +132,7 @@ def build_renderer_agent(
     temperature: float = 0.2,
     tenant_system_prompt: str = "",
 ) -> Agent:
-    """Strands agent with no tools — one constrained render call."""
+    """Strands agent with no tools - one constrained render call."""
     return Agent(
         model=build_model(temperature=temperature, model_id=model_id),
         system_prompt=_renderer_system_prompt(tenant_system_prompt),
@@ -181,7 +186,7 @@ def render_draft(
     """Render the spec with one LLM call; retry once on structured-parse failure.
 
     The retry re-sends the same prompt with the parse error appended so the model
-    can correct its JSON. A second failure raises — never loop unbounded. Token usage
+    can correct its JSON. A second failure raises - never loop unbounded. Token usage
     is summed across attempts so a retry's cost is not lost.
     """
     agent = build_renderer_agent(model_id=model_id, tenant_system_prompt=tenant_system_prompt)
