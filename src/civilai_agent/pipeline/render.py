@@ -26,6 +26,9 @@ Rules:
 - Do not invent facts when fields are empty; state uncertainty explicitly.
 - Produce concise, ATX Civil-style feasibility language.
 - No tools are available; all context is injected below. Leave sources empty.
+- When Citations include ArcGIS Map Viewer URLs (apps/mapviewer), include each in
+  suggested_language as a markdown link using the citation source_name as the label:
+  [source_name](url). Do not omit these GIS viewer HREFs from the draft prose.
 - If a "Section formatting requirements" block is provided, follow its structure (subsection
   headings, order) using markdown headings in suggested_language. Treat it as a formatting
   guide only — never source facts from it; governed facts, slots, and determinations above

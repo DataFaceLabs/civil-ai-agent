@@ -4,16 +4,18 @@ from civilai_agent.models.context import WorkbenchContext
 from civilai_agent.workflows.section_draft import build_user_prompt, section_draft_prompt
 
 
-def test_section_draft_prompt_requests_structured_json() -> None:
-    context = WorkbenchContext(
-        project_id="p",
-        entity_id="ent-1",
-        active_section_id="zoning",
-        request="Draft it.",
+def test_section_draft_prompt_preserves_gis_markdown_hrefs() -> None:
+    prompt = section_draft_prompt(
+        WorkbenchContext(
+            project_id="p",
+            entity_id="ent-1",
+            active_section_id="utilities",
+            request="Draft it.",
+        )
     )
-    prompt = section_draft_prompt(context)
-    assert "suggested_language" in prompt
-    assert "JSON object" in prompt
+    assert "markdown links" in prompt.lower()
+    assert "GIS viewer" in prompt
+    assert "HREFs" in prompt or "href" in prompt.lower()
 
 
 def test_build_user_prompt_uses_section_draft_for_workflow() -> None:

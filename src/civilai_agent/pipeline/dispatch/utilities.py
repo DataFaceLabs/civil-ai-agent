@@ -112,27 +112,51 @@ def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any
     if not isinstance(facts_payload, dict):
         return []
     evidence = facts_payload.get("evidence")
-    if not isinstance(evidence, dict):
-        return []
     citations: list[dict[str, Any]] = []
-    for field, entries in evidence.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict):
+    if isinstance(evidence, dict):
+        for field, entries in evidence.items():
+            if not isinstance(entries, list):
                 continue
-            url = entry.get("citation_url")
-            if not url:
-                continue
-            citations.append(
-                {
-                    "field": field,
-                    "source_name": entry.get("source_name"),
-                    "source_id": entry.get("source_id"),
-                    "url": url,
-                }
-            )
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                url = entry.get("citation_url")
+                if not url:
+                    continue
+                citations.append(
+                    {
+                        "field": field,
+                        "source_name": entry.get("source_name"),
+                        "source_id": entry.get("source_id"),
+                        "url": url,
+                    }
+                )
+    citations.extend(_gis_viewer_citations(_inner_facts(facts_payload)))
     return citations
+
+
+_GIS_VIEWER_LABELS: tuple[tuple[str, str], ...] = (
+    ("water", "Nearest water main"),
+    ("wastewater", "Nearest wastewater main"),
+)
+
+
+def _gis_viewer_citations(inner: dict[str, Any]) -> list[dict[str, Any]]:
+    """Map Viewer deep links from overlay facts (friendly labels for draft HREFs)."""
+    out: list[dict[str, Any]] = []
+    for kind, label in _GIS_VIEWER_LABELS:
+        href = _normalize_text(inner.get(f"nearest_{kind}_drawing_href"))
+        if not href or "apps/mapviewer" not in href:
+            continue
+        out.append(
+            {
+                "field": f"nearest_{kind}_drawing_href",
+                "source_name": label,
+                "source_id": f"agol_map_viewer_{kind}",
+                "url": href,
+            }
+        )
+    return out
 
 
 def _sanitize_provider_slots(
@@ -296,6 +320,14 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
 
     if esd_name:
         stems.append(f"Fire protection district: {esd_name}.")
+
+    for kind, label in _GIS_VIEWER_LABELS:
+        href = _normalize_text(inner.get(f"nearest_{kind}_drawing_href"))
+        if href and "apps/mapviewer" in href:
+            stems.append(
+                f"Include the GIS viewer link as markdown [{label}]({href}) in the "
+                f"relevant {kind} subsection."
+            )
 
     if ossf_lot_size_conclusion and (
         ossf_required is True or branch_id == "utilities.ossf" or ossf_existing_retained is not None

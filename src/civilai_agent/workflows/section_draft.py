@@ -26,6 +26,10 @@ governed data is available for this entity, and list what is missing in "data_ga
 When field_context already contains PROPERTY_ADDRESS, parcel identifiers, or other governed
 values, draft from those values. Do not ask the analyst to re-provide information present in
 field_context or the Prompt Lab request.
+
+When field_context includes markdown links such as [Nearest water main](https://...),
+preserve those friendly labels with their HREFs in suggested_language (do not drop the URLs or
+replace them with bare links).
 """.strip()
 
 
