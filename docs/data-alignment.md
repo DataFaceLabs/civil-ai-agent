@@ -180,17 +180,20 @@ confirmed:
 
 These likely need new APIs, connectors, source tools, or user-supplied inputs:
 
-- Utility line size, material, distance to main, and capacity.
-- Provider will-serve or capacity confirmation.
+- Provider will-serve or capacity confirmation (hard non-goal — never infer from GIS).
 - Fire flow test status and result.
-- Fire jurisdiction/ESD and adopted IFC edition.
+- Fire jurisdiction/ESD and adopted IFC edition (ESD name may be served; edition often not).
 - Plat status and recorded plat documents.
-- Deed restrictions, title exceptions, easements, and development agreements.
-- FIRM panel number and effective date if not surfaced by BE.
+- Deed restrictions, title exceptions, easements (dev agreements partially served).
 - TxDOT driveway permit applicability and roadway authority details.
 - Proposed development program, site layout, building area, unit count, and proposed IC.
 - Uploaded feasibility exhibits and customer documents.
 - SME judgment calls and customer-specific questions.
+
+**Already served (do use when present):** nearest water/wastewater main distance/diameter/material
+via `nearest_*_distance_m` + `network_coverage_tier`; municipal tap cards (`tap_cards_*`);
+FIRM `panel_id` / `effective_date` when coverage is live. GIS proximity and tap cards are
+**not** capacity or will-serve.
 
 ## API Gaps To Consider
 

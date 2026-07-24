@@ -1,7 +1,26 @@
 """Tests for web search dedupe."""
 
 from civilai_agent.guardrails.web_search_models import WebSearchConfig
-from civilai_agent.tools.web_search import SearchSession
+from civilai_agent.tools.web_search import SearchSession, domain_allowed
+
+
+def test_domain_allowed_requires_hostname_boundary() -> None:
+    config = WebSearchConfig(
+        allowed_domains=("texas.gov",),
+        blocked_domains=("social.example",),
+    )
+
+    assert domain_allowed("https://tceq.texas.gov/gis", config) is True
+    assert domain_allowed("https://texas.gov/", config) is True
+    assert domain_allowed("https://nottexas.gov/", config) is False
+    assert domain_allowed("https://texas.gov.evil.example/", config) is False
+    assert domain_allowed("https://social.example/", config) is False
+
+
+def test_domain_allowed_rejects_open_wildcard() -> None:
+    config = WebSearchConfig(allowed_domains=("*.*",))
+
+    assert domain_allowed("https://untrusted.example/", config) is False
 
 
 def test_search_session_dedupes_same_query() -> None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from civilai_agent.pipeline.dispatch.utilities import dispatch_utilities
 from civilai_agent.pipeline.fetch import SectionContext
 
@@ -30,6 +32,68 @@ def test_public_main_branch_when_centralized_sewer() -> None:
     assert spec.branch_id == "utilities.public_main"
     assert spec.tier == 2
     assert "coverage" in spec.stems[0].lower()
+
+
+def test_public_main_from_lake_nearest_wastewater_meters() -> None:
+    """Lake serves nearest_*_distance_m; dispatch must convert to ft (not miss the field)."""
+    spec = dispatch_utilities(
+        SectionContext(
+            entity_id="ent-1",
+            section_id="utilities",
+            facts={
+                "facts": {
+                    "ossf_required": False,
+                    "water_provider": "Austin Water",
+                    "wastewater_provider": "Austin Water Wastewater",
+                    "nearest_wastewater_distance_m": 15.24,  # ~50 ft
+                    "nearest_water_distance_m": 12.0,
+                    "network_coverage_tier": "line_gis",
+                },
+                "quality": {
+                    "flags": [
+                        "water_ccn_overlay_observed",
+                        "wastewater_ccn_overlay_observed",
+                    ]
+                },
+            },
+        )
+    )
+    assert spec.branch_id == "utilities.public_main"
+    assert float(spec.slots["ww_main_distance_ft"] or 0) == pytest.approx(50.0, rel=1e-3)
+    assert any("proximity" in stem.lower() for stem in spec.stems)
+
+
+def test_gis_viewer_citations_and_stems_from_drawing_href() -> None:
+    viewer = (
+        "https://www.arcgis.com/apps/mapviewer/index.html"
+        "?url=https%3A%2F%2Fexample%2FMapServer%2F25&center=-97.7,30.2"
+    )
+    spec = dispatch_utilities(
+        SectionContext(
+            entity_id="ent-1",
+            section_id="utilities",
+            facts={
+                "facts": {
+                    "ossf_required": False,
+                    "water_provider": "Austin Water",
+                    "wastewater_provider": "Austin Water Wastewater",
+                    "ww_main_distance_ft": 50,
+                    "nearest_water_drawing_href": viewer,
+                },
+                "quality": {
+                    "flags": [
+                        "water_ccn_overlay_observed",
+                        "wastewater_ccn_overlay_observed",
+                    ]
+                },
+            },
+        )
+    )
+    assert any(
+        c.get("url") == viewer and c.get("source_name") == "Nearest water main"
+        for c in spec.citations
+    )
+    assert any(f"[Nearest water main]({viewer})" in stem for stem in spec.stems)
 
 
 def test_provider_distant_branch() -> None:

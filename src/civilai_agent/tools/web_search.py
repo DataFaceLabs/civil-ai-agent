@@ -174,10 +174,21 @@ class SearchSession:
         return results
 
 
+def _domain_matches(host: str, configured_domain: str) -> bool:
+    domain = configured_domain.strip().lower().lstrip(".")
+    if domain.startswith("*."):
+        domain = domain[2:]
+    if not domain or domain in {"*", "*.*"}:
+        return False
+    return host == domain or host.endswith(f".{domain}")
+
+
 def domain_allowed(url: str, config: WebSearchConfig) -> bool:
-    host = urlparse(url).netloc.lower()
-    if config.blocked_domains and any(host.endswith(d.lower()) for d in config.blocked_domains):
+    host = (urlparse(url).hostname or "").lower()
+    if config.blocked_domains and any(
+        _domain_matches(host, domain) for domain in config.blocked_domains
+    ):
         return False
     if config.allowed_domains:
-        return any(host.endswith(d.lower()) for d in config.allowed_domains)
+        return any(_domain_matches(host, domain) for domain in config.allowed_domains)
     return True
