@@ -96,7 +96,9 @@ def _distance_ft_from_facts(inner: dict[str, Any], *, kind: str) -> float | None
     meters = _float_value(inner.get(f"nearest_{kind}_distance_m"))
     if meters is not None:
         return meters * _METERS_TO_FEET
-    legacy = _float_value(inner.get(f"{'ww' if kind == 'wastewater' else 'water'}_main_distance_ft"))
+    legacy = _float_value(
+        inner.get(f"{'ww' if kind == 'wastewater' else 'water'}_main_distance_ft")
+    )
     if legacy is not None:
         return legacy
     return _float_value(inner.get(f"nearest_{kind}_distance_ft"))
