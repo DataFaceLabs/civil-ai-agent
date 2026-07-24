@@ -18,10 +18,21 @@ _PROVIDER_UNCONFIRMED_GAP = MissingInput(
 )
 
 _WW_DISTANCE_OSSF_THRESHOLD_FT = 500.0
+_METERS_TO_FEET = 3.280839895
 
 _COVERAGE_DISCLAIMER_STEM = (
     "Service territory or CCN coverage indicates the provider could serve the area; "
     "it does not confirm capacity, connection point, or will-serve."
+)
+
+_LINE_GIS_DISCLAIMER_STEM = (
+    "GIS nearest-main distance/diameter is proximity evidence only — not a connection "
+    "point, capacity, or will-serve commitment."
+)
+
+_TAP_CARDS_DISCLAIMER_STEM = (
+    "Municipal tap cards are historical connection records; they do not prove current "
+    "capacity or will-serve."
 )
 
 _WW_DISTANCE_GAP = MissingInput(
@@ -78,6 +89,29 @@ def _float_value(raw: Any) -> float | None:
         return float(raw)
     except (TypeError, ValueError):
         return None
+
+
+def _distance_ft_from_facts(inner: dict[str, Any], *, kind: str) -> float | None:
+    """Prefer lake nearest_*_distance_m (meters); fall back to legacy *_ft keys."""
+    meters = _float_value(inner.get(f"nearest_{kind}_distance_m"))
+    if meters is not None:
+        return meters * _METERS_TO_FEET
+    legacy = _float_value(
+        inner.get(f"{'ww' if kind == 'wastewater' else 'water'}_main_distance_ft")
+    )
+    if legacy is not None:
+        return legacy
+    return _float_value(inner.get(f"nearest_{kind}_distance_ft"))
+
+
+def _has_tap_cards(inner: dict[str, Any]) -> bool:
+    raw = inner.get("tap_cards_json")
+    if raw is None:
+        return False
+    if isinstance(raw, list):
+        return len(raw) > 0
+    text = str(raw).strip()
+    return bool(text) and text not in ("[]", "{}", "null", "None")
 
 
 def _determination_items(ctx: SectionContext) -> list[dict[str, Any]]:
@@ -185,7 +219,9 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     water_provider = _normalize_text(inner.get("water_provider"))
     wastewater_provider = _normalize_text(inner.get("wastewater_provider"))
     power_provider = _normalize_text(inner.get("power_provider"))
-    ww_distance = _float_value(inner.get("ww_main_distance_ft"))
+    ww_distance = _distance_ft_from_facts(inner, kind="wastewater")
+    water_distance = _distance_ft_from_facts(inner, kind="water")
+    coverage_tier = _normalize_text(inner.get("network_coverage_tier"))
     ossf_authority = _normalize_text(inner.get("ossf_authority"))
     esd_name = _normalize_text(inner.get("esd_name"))
 
@@ -200,6 +236,8 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         "wastewater_provider": wastewater_provider,
         "power_provider": power_provider,
         "ww_main_distance_ft": None if ww_distance is None else str(ww_distance),
+        "water_main_distance_ft": None if water_distance is None else str(water_distance),
+        "network_coverage_tier": coverage_tier,
         "ossf_authority": ossf_authority,
         "esd_name": esd_name,
     }
@@ -210,6 +248,15 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         "Draft Water, Wastewater, Electric, and Fire Protection subsections when facts support them.",
         "Never assert water or wastewater is available from territory/CCN coverage alone.",
     ]
+    if coverage_tier == "line_gis" or ww_distance is not None or water_distance is not None:
+        stems.append(_LINE_GIS_DISCLAIMER_STEM)
+    if coverage_tier == "unknown":
+        stems.append(
+            "Municipal line GIS coverage is unknown for this parcel — do not invent nearest-main "
+            "distance or diameter."
+        )
+    if _has_tap_cards(inner):
+        stems.append(_TAP_CARDS_DISCLAIMER_STEM)
 
     if ossf_required is True:
         branch_id = "utilities.ossf"
@@ -285,7 +332,13 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         )
 
     if water_provider and ccn_provider_confirmed(facts_payload, "water"):
-        stems.append(f"Potable water provider from governed CCN facts: {water_provider}.")
+        if water_distance is not None:
+            stems.append(
+                f"Potable water provider from governed CCN facts: {water_provider}; "
+                f"nearest water main ≈ {water_distance:.0f} ft (GIS proximity only)."
+            )
+        else:
+            stems.append(f"Potable water provider from governed CCN facts: {water_provider}.")
     elif water_provider:
         stems.append("Potable water provider is pending CCN confirmation — do NOT name a provider.")
         missing_inputs.append(_PROVIDER_UNCONFIRMED_GAP)
