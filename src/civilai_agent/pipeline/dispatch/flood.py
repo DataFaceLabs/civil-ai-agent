@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from civilai_agent.pipeline.citations import build_citations_from_evidence
 from civilai_agent.pipeline.fetch import SectionContext
 from civilai_agent.pipeline.jurisdiction import (
     jurisdiction_context,
@@ -134,30 +135,7 @@ def _relevant_determinations(ctx: SectionContext) -> list[dict[str, Any]]:
 
 
 def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
-    if not isinstance(facts_payload, dict):
-        return []
-    evidence = facts_payload.get("evidence")
-    if not isinstance(evidence, dict):
-        return []
-    citations: list[dict[str, Any]] = []
-    for field, entries in evidence.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            url = entry.get("citation_url")
-            if not url:
-                continue
-            citations.append(
-                {
-                    "field": field,
-                    "source_name": entry.get("source_name"),
-                    "source_id": entry.get("source_id"),
-                    "url": url,
-                }
-            )
-    return citations
+    return build_citations_from_evidence(facts_payload)
 
 
 def _panel_data_gaps(panel_id: str | None, effective_date: str | None) -> list[MissingInput]:
