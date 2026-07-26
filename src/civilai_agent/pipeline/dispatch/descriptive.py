@@ -13,36 +13,66 @@ from __future__ import annotations
 
 from typing import Any
 
+from civilai_agent.pipeline.citations import build_citations_from_evidence
 from civilai_agent.pipeline.fetch import SectionContext
 from civilai_agent.pipeline.specs import DraftSpec
 
 
 def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
     """Flatten the per-field ``evidence`` block into a compact citation list."""
-    if not isinstance(facts_payload, dict):
-        return []
-    evidence = facts_payload.get("evidence")
-    if not isinstance(evidence, dict):
-        return []
-    citations: list[dict[str, Any]] = []
-    for field, entries in evidence.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            url = entry.get("citation_url")
-            if not url:
-                continue
-            citations.append(
-                {
-                    "field": field,
-                    "source_name": entry.get("source_name"),
-                    "source_id": entry.get("source_id"),
-                    "url": url,
-                }
-            )
-    return citations
+    return build_citations_from_evidence(facts_payload)
+
+
+def _inner_facts(facts: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(facts, dict):
+        return {}
+    inner = facts.get("facts")
+    if isinstance(inner, dict):
+        return inner
+    return facts
+
+
+def _normalize_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text or text.lower() in ("null", "none"):
+        return None
+    return text
+
+
+def _float_value(raw: Any) -> float | None:
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _access_stems(inner: dict[str, Any]) -> list[str]:
+    """ROW / ASMP stems when mobility facts are present (access section)."""
+    stems: list[str] = []
+    row_existing = _float_value(inner.get("row_existing_ft"))
+    row_required = _float_value(inner.get("row_required_ft"))
+    asmp = _normalize_text(inner.get("asmp_level"))
+    if row_existing is not None or row_required is not None:
+        parts: list[str] = []
+        if row_existing is not None:
+            parts.append(f"existing ROW ≈ {row_existing:g} ft")
+        if row_required is not None:
+            parts.append(f"required ROW ≈ {row_required:g} ft")
+        stems.append(
+            "Right-of-way from governed mobility facts: "
+            + "; ".join(parts)
+            + ". Do not invent dedication widths beyond these values."
+        )
+    if asmp:
+        stems.append(
+            f"ASMP / roadway classification level from governed facts: {asmp}. "
+            "Confirm frontage and access spacing against the jurisdiction ASMP map."
+        )
+    return stems
 
 
 def _determinations(ctx: SectionContext) -> list[dict[str, Any]]:
@@ -65,6 +95,9 @@ def _determinations(ctx: SectionContext) -> list[dict[str, Any]]:
 def dispatch_descriptive(ctx: SectionContext, section_id: str) -> DraftSpec:
     """Map governed facts + determinations to a render-only DraftSpec (no branch logic)."""
     facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
+    stems: list[str] = []
+    if section_id in {"access", "mobility"}:
+        stems = _access_stems(_inner_facts(facts_payload))
     return DraftSpec(
         entity_id=ctx.entity_id,
         section_id=section_id,
@@ -74,7 +107,7 @@ def dispatch_descriptive(ctx: SectionContext, section_id: str) -> DraftSpec:
         facts=facts_payload,
         determinations=_determinations(ctx),
         citations=_build_citations(facts_payload),
-        stems=[],
+        stems=stems,
         missing_inputs=[],
         searchable_gaps=[],
     )

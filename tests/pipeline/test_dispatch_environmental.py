@@ -294,3 +294,27 @@ def test_cwqz_setback_suppresses_adjacent_waterway_contradiction() -> None:
     assert not any(
         "did not identify an adjacent jurisdictional waterway" in stem for stem in spec.stems
     )
+
+
+def test_water_quality_and_waterway_distance_stems() -> None:
+    spec = dispatch_environmental(
+        _ctx(
+            facts={
+                "facts": {
+                    "wpap_type": "outside",
+                    "zone_type": "outside",
+                    "source_fips": "48453",
+                    "tceq_segment_id": "1428",
+                    "water_quality_classification": "Exceptional",
+                    "waterway_distance_ft": 420.0,
+                    "cwqz_setback_applies": False,
+                },
+                **_EDWARDS_TCEQ_QUALITY,
+            }
+        )
+    )
+    assert spec.slots["tceq_segment_id"] == "1428"
+    assert spec.slots["water_quality_classification"] == "Exceptional"
+    assert any("TCEQ segment 1428" in stem for stem in spec.stems)
+    assert any("420 ft" in stem for stem in spec.stems)
+    assert any("CWQZ setback does not apply" in stem for stem in spec.stems)
