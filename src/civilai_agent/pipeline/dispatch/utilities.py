@@ -301,6 +301,9 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         _COVERAGE_DISCLAIMER_STEM,
         "Draft Water, Wastewater, Electric, and Fire Protection subsections when facts support them.",
         "Never assert water or wastewater is available from territory/CCN coverage alone.",
+        "When web search returns provider contacts, format Water and Wastewater as contact "
+        "blocks with Provider Name, Provider Address, Provider Email, and Provider Phone on "
+        "separate lines (omit lines search did not return). Do not invent phone numbers or emails.",
     ]
     if coverage_tier == "line_gis" or ww_distance is not None or water_distance is not None:
         stems.append(_LINE_GIS_DISCLAIMER_STEM)

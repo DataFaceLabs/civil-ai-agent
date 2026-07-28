@@ -48,3 +48,17 @@ def test_impervious_takes_priority_over_zoning_when_both_present() -> None:
 
 def test_no_queries_without_any_field_context() -> None:
     assert derive_prefetch_queries({}) == ()
+
+
+def test_utility_provider_contact_prefetch_from_service_fields() -> None:
+    queries = derive_prefetch_queries(
+        {
+            "PROPERTY_ADDRESS": "2102 Matterhorn Ln, Austin, TX 78704",
+            "WATER_SERVICE": ("Provider Name: Austin Water\nProvider Phone: 512-494-9400"),
+            "WASTEWATER_SERVICE": "Provider Name: Austin Water Wastewater",
+        },
+        max_queries=3,
+    )
+    assert queries
+    assert any("austin water" in q.lower() and "phone" in q.lower() for q in queries)
+    assert any("2102 matterhorn" in q.lower() for q in queries)
