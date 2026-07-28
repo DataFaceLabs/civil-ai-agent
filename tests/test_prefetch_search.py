@@ -54,10 +54,7 @@ def test_utility_provider_contact_prefetch_from_service_fields() -> None:
     queries = derive_prefetch_queries(
         {
             "PROPERTY_ADDRESS": "2102 Matterhorn Ln, Austin, TX 78704",
-            "WATER_SERVICE": (
-                "Provider Name: Austin Water\n"
-                "Provider Phone: 512-494-9400"
-            ),
+            "WATER_SERVICE": ("Provider Name: Austin Water\nProvider Phone: 512-494-9400"),
             "WASTEWATER_SERVICE": "Provider Name: Austin Water Wastewater",
         },
         max_queries=3,

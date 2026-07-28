@@ -82,13 +82,9 @@ def derive_prefetch_queries(
     water_provider = _provider_name_from_service_field(water_service)
     wastewater_provider = _provider_name_from_service_field(wastewater_service)
     if address and (water_provider or wastewater_provider):
-        providers = " and ".join(
-            name for name in (water_provider, wastewater_provider) if name
-        )
+        providers = " and ".join(name for name in (water_provider, wastewater_provider) if name)
         queries.append(
-            normalize_search_query(
-                f"{providers} customer service phone email address {address}"
-            )
+            normalize_search_query(f"{providers} customer service phone email address {address}")
         )
     elif address and juris:
         queries.append(
