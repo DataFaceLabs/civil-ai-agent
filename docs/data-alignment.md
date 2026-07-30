@@ -30,7 +30,6 @@ access should be reserved for backend jobs, debugging, or explicitly approved to
 | Resolve address or parcel | `/v1/entities/resolve` | Start here for address/parcel ambiguity. |
 | Fetch one section | `/v1/sections/{section_id}/facts/{entity_id}` | Best for section-specific drafting. |
 | Fetch all facts | `/v1/entities/{entity_id}/facts` | Best for project-wide investigation. |
-| **Run determinations (the derivation layer)** | `/v1/entities/{entity_id}/determinations` | **Deterministic** findings (applicability/decision/conclusion) with `inputs_used`, rule basis, and confidence. The agent's derivation layer — see below; do not re-derive in the agent. |
 | Inspect evidence lineage | `/v1/entities/{entity_id}/provenance` | Needed for claims, citations, and traceability. |
 | Export evidence | `/v1/entities/{entity_id}/export` | Useful for source bundles and QA packets. |
 | Create/retrieve parcel snapshot | `/v1/parcel-snapshots`, `/v1/parcel-snapshots/{id}` | Pins serving `snapshot_date` for reproducible exports. |
@@ -38,53 +37,6 @@ access should be reserved for backend jobs, debugging, or explicitly approved to
 | FE site lookup | `/v1/fe/site/by-address`, `/v1/fe/site/by-parcel` | Current FE-oriented parcel/site bootstrap. |
 | Catalog discovery | `/v1/catalog/*` | Useful for runtime schema awareness. |
 | Legacy report workflow | `/report`, `/report/{run_id}/domain/{n}` | Compatibility path, not preferred new design. |
-
-## Derivation Layer: The Determination Engine (deterministic)
-
-The proposed `POST /v1/derivations/evaluate` (see [API Gaps](#api-gaps-to-consider)) is
-**already built.** `civil-ai-data` exposes a **determination engine** at
-`GET /v1/entities/{entity_id}/determinations`, which evaluates the section-determination
-contracts (platting, zoning, flood, jurisdiction, environmental, soils, utilities, watershed,
-mobility, compliance) over a parcel's served facts and returns **determination records**:
-`{determination_id, inquiry, branch, conclusion, confidence, inputs_used}`. Each record already
-satisfies the [Data Rules](#data-rules) — input values, the rule applied (`basis`), the result,
-and confidence.
-
-**This is the agent's derivation layer — and it is deterministic Python, not the LLM.** The
-"Derivation Tools" the agent needs (controlling impervious-cover limit, OSSF applicability, plat
-exemption, SFHA status, permitting authority, Edwards WPAP/CZP, …) are **determinations, not
-prompts.** The agent *calls* them; it does not re-derive that logic.
-
-### Deterministic vs LLM — the contract
-
-| Done deterministically (Python / the engine) | The LLM's job — the only place it earns its cost |
-| --- | --- |
-| Resolution, fact + provenance retrieval | Understanding open-ended natural-language requests |
-| **All determinations** (the contract set) | **Synthesizing** determination records into report-quality, ATX-voice prose |
-| Citations / claim → source · gap detection | What-if / scenario reasoning over the deterministic outputs |
-| Permit-checklist rules · templated conclusions | Extracting facts from **unstructured** evidence (uploaded docs, code/manual text) |
-| Grounding QA · confidence → SME routing | Conversational explanation / Q&A |
-
-Rule of thumb: **if the agent is asked to *decide* a determination, that is the signal to move
-it into the engine.** (Example: impervious-cover limit is the most-restrictive of
-zoning/watershed/overlay — a deterministic rule, never an LLM call. Get the input facts into the
-lake; the limit is a determination.)
-
-### Call pattern — pre-compute, then synthesize (cost + latency)
-
-Prefer a **deterministic pre-compute → bounded LLM synthesis** pipeline over an open-ended
-"LLM reasons in a loop, calling tools one at a time" pattern:
-
-1. Deterministically run resolve → facts → **all determinations** → gaps → permit rules
-   (zero LLM) into a structured *evidence packet*.
-2. Make a **small, fixed number of LLM calls** (ideally one structured call, or one per report
-   section) to synthesize that packet into narrative, over **prompt-cached** context.
-
-Two modes, deliberately separated: **study generation** (the batch pipeline above — predictable,
-low LLM-call count, reproducible) and **interactive Q&A** (an LLM tool-calling loop, only for
-ad-hoc questions you cannot pre-compute). At scale the determinations are ~free (cached Athena);
-the LLM is the cost driver, so bound it — few calls per study, prompt caching, a cheaper model
-for routing/extraction with the strong model only for synthesis, parallelized per section.
 
 ## Section Fact Catalog
 
@@ -169,10 +121,8 @@ confirmed:
 - Terrain/slope and elevation facts.
 - Road/ROW/mobility facts.
 - Environmental overlays beyond core flood/watershed data.
-- Compliance-derived values such as impervious-cover limits, OSSF applicability, and permit
-  requirements — **the determination engine now provides these deterministically; completeness
-  is gated on the input facts** (e.g. non-Austin IC code tables, Barton Springs / LCRA HLWO
-  special zones, lot platting, existing on-site IC).
+- Compliance-derived values such as impervious cover limits, OSSF applicability, and
+  permit requirements.
 - Jurisdiction-specific rule tables.
 - Historical snapshots for every user-facing artifact.
 
@@ -209,7 +159,7 @@ contracts:
 | `GET /v1/entities/{id}/gaps` | Return known missing/partial data by report section. |
 | `GET /v1/reference-sources` | Align with FE expectation for visible source catalog. |
 | `POST /v1/evidence/search` | Search uploaded docs/source bundles by project. |
-| `POST /v1/derivations/evaluate` | Evaluate rule-derived fields with citation and explanation. **Realized** as `GET /v1/entities/{id}/determinations` (the determination engine). |
+| `POST /v1/derivations/evaluate` | Evaluate rule-derived fields with citation and explanation. |
 
 ## FE Data Needed By The Agent
 

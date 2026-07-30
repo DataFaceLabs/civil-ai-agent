@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
+from civilai_agent.pipeline.citations import build_citations_from_evidence
 from civilai_agent.pipeline.fetch import SectionContext
 from civilai_agent.pipeline.quality_flags import ccn_provider_confirmed
 from civilai_agent.pipeline.specs import DraftSpec, MissingInput
@@ -104,14 +106,79 @@ def _distance_ft_from_facts(inner: dict[str, Any], *, kind: str) -> float | None
     return _float_value(inner.get(f"nearest_{kind}_distance_ft"))
 
 
-def _has_tap_cards(inner: dict[str, Any]) -> bool:
+def _parse_tap_cards(inner: dict[str, Any]) -> list[dict[str, Any]]:
     raw = inner.get("tap_cards_json")
-    if raw is None:
-        return False
     if isinstance(raw, list):
-        return len(raw) > 0
-    text = str(raw).strip()
-    return bool(text) and text not in ("[]", "{}", "null", "None")
+        return [card for card in raw if isinstance(card, dict)]
+    if isinstance(raw, str) and raw.strip():
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        if isinstance(parsed, list):
+            return [card for card in parsed if isinstance(card, dict)]
+    return []
+
+
+def _tap_card_stems_and_citations(
+    inner: dict[str, Any],
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Narrate matched tap cards and cite DocuWare document links when present."""
+    cards = _parse_tap_cards(inner)
+    if not cards:
+        return [], []
+    stems: list[str] = [_TAP_CARDS_DISCLAIMER_STEM]
+    citations: list[dict[str, Any]] = []
+    labels: list[str] = []
+    for card in cards:
+        href = _normalize_text(card.get("document_href"))
+        label = _normalize_text(card.get("address_label")) or _normalize_text(
+            card.get("full_street_address")
+        )
+        card_type = _normalize_text(card.get("utility_type") or card.get("type"))
+        if label and card_type:
+            display = f"{label} ({card_type})"
+        elif label:
+            display = label
+        else:
+            display = card_type or "municipal tap card"
+        labels.append(display)
+        if href:
+            citations.append(
+                {
+                    "field": "tap_cards_json",
+                    "source_name": display,
+                    "source_id": "municipal_tap_card",
+                    "url": href,
+                }
+            )
+            stems.append(f"Include tap-card evidence as markdown [{display}]({href}).")
+    count = len(cards)
+    preview = "; ".join(labels[:3])
+    if count > 3:
+        preview += f"; +{count - 3} more"
+    stems.append(
+        f"{count} municipal tap card(s) matched this parcel ({preview}). "
+        "Cite as historical connection evidence only."
+    )
+    return stems, citations
+
+
+def _nearest_main_detail_stems(inner: dict[str, Any], *, kind: str) -> list[str]:
+    """Surface diameter/material when lake overlay provides them."""
+    diameter = _float_value(inner.get(f"nearest_{kind}_diameter_in"))
+    material = _normalize_text(inner.get(f"nearest_{kind}_material"))
+    if diameter is None and material is None:
+        return []
+    parts: list[str] = []
+    if diameter is not None:
+        parts.append(f"≈ {diameter:g} in diameter")
+    if material:
+        parts.append(f"material {material}")
+    return [
+        f"Nearest {kind} main detail from GIS overlay: {', '.join(parts)} "
+        "(proximity attributes only — not a connection or capacity commitment)."
+    ]
 
 
 def _determination_items(ctx: SectionContext) -> list[dict[str, Any]]:
@@ -143,28 +210,7 @@ def _det_conclusion(ctx: SectionContext, determination_id: str) -> str | None:
 
 
 def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
-    if not isinstance(facts_payload, dict):
-        return []
-    evidence = facts_payload.get("evidence")
-    citations: list[dict[str, Any]] = []
-    if isinstance(evidence, dict):
-        for field, entries in evidence.items():
-            if not isinstance(entries, list):
-                continue
-            for entry in entries:
-                if not isinstance(entry, dict):
-                    continue
-                url = entry.get("citation_url")
-                if not url:
-                    continue
-                citations.append(
-                    {
-                        "field": field,
-                        "source_name": entry.get("source_name"),
-                        "source_id": entry.get("source_id"),
-                        "url": url,
-                    }
-                )
+    citations = build_citations_from_evidence(facts_payload)
     citations.extend(_gis_viewer_citations(_inner_facts(facts_payload)))
     return citations
 
@@ -224,6 +270,10 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     coverage_tier = _normalize_text(inner.get("network_coverage_tier"))
     ossf_authority = _normalize_text(inner.get("ossf_authority"))
     esd_name = _normalize_text(inner.get("esd_name"))
+    water_diameter = _float_value(inner.get("nearest_water_diameter_in"))
+    water_material = _normalize_text(inner.get("nearest_water_material"))
+    ww_diameter = _float_value(inner.get("nearest_wastewater_diameter_in"))
+    ww_material = _normalize_text(inner.get("nearest_wastewater_material"))
 
     facts_payload = ctx.facts if isinstance(ctx.facts, dict) else {}
     ossf_lot_size_conclusion = _det_conclusion(ctx, "ossf_lot_size_feasibility")
@@ -238,6 +288,10 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         "ww_main_distance_ft": None if ww_distance is None else str(ww_distance),
         "water_main_distance_ft": None if water_distance is None else str(water_distance),
         "network_coverage_tier": coverage_tier,
+        "nearest_water_diameter_in": None if water_diameter is None else str(water_diameter),
+        "nearest_water_material": water_material,
+        "nearest_wastewater_diameter_in": None if ww_diameter is None else str(ww_diameter),
+        "nearest_wastewater_material": ww_material,
         "ossf_authority": ossf_authority,
         "esd_name": esd_name,
     }
@@ -247,6 +301,9 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         _COVERAGE_DISCLAIMER_STEM,
         "Draft Water, Wastewater, Electric, and Fire Protection subsections when facts support them.",
         "Never assert water or wastewater is available from territory/CCN coverage alone.",
+        "When web search returns provider contacts, format Water and Wastewater as contact "
+        "blocks with Provider Name, Provider Address, Provider Email, and Provider Phone on "
+        "separate lines (omit lines search did not return). Do not invent phone numbers or emails.",
     ]
     if coverage_tier == "line_gis" or ww_distance is not None or water_distance is not None:
         stems.append(_LINE_GIS_DISCLAIMER_STEM)
@@ -255,8 +312,10 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
             "Municipal line GIS coverage is unknown for this parcel — do not invent nearest-main "
             "distance or diameter."
         )
-    if _has_tap_cards(inner):
-        stems.append(_TAP_CARDS_DISCLAIMER_STEM)
+    stems.extend(_nearest_main_detail_stems(inner, kind="water"))
+    stems.extend(_nearest_main_detail_stems(inner, kind="wastewater"))
+    tap_stems, tap_citations = _tap_card_stems_and_citations(inner)
+    stems.extend(tap_stems)
 
     if ossf_required is True:
         branch_id = "utilities.ossf"
@@ -401,6 +460,9 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     ccn_gaps = _sanitize_provider_slots(slots, facts_payload)
     missing_inputs.extend(g for g in ccn_gaps if g not in missing_inputs)
 
+    citations = _build_citations(facts_payload)
+    citations.extend(tap_citations)
+
     return DraftSpec(
         entity_id=ctx.entity_id,
         section_id="utilities",
@@ -409,7 +471,7 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         slots=slots,
         facts=facts_payload,
         determinations=_relevant_determinations(ctx),
-        citations=_build_citations(facts_payload),
+        citations=citations,
         stems=stems,
         missing_inputs=missing_inputs,
         searchable_gaps=[],

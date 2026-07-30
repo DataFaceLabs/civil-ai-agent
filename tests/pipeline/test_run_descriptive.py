@@ -25,7 +25,7 @@ def _ctx(section_id: str) -> SectionContext:
         entity_id="ent-1",
         section_id=section_id,
         facts={
-            "facts": {"property_acres": "1.88", "tcad_land_use": "F3"},
+            "facts": {"property_acres": "1.88", "cad_land_use": "F3"},
             "evidence": {
                 "property_acres": [
                     {"citation_url": "https://tcad.example/x", "source_name": "TCAD"}

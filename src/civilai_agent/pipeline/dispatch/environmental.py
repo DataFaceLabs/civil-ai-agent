@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from civilai_agent.pipeline.citations import build_citations_from_evidence
 from civilai_agent.pipeline.fetch import SectionContext
 from civilai_agent.pipeline.jurisdiction import (
     jurisdiction_context,
@@ -181,30 +182,7 @@ def _relevant_determinations(ctx: SectionContext) -> list[dict[str, Any]]:
 
 
 def _build_citations(facts_payload: dict[str, Any] | None) -> list[dict[str, Any]]:
-    if not isinstance(facts_payload, dict):
-        return []
-    evidence = facts_payload.get("evidence")
-    if not isinstance(evidence, dict):
-        return []
-    citations: list[dict[str, Any]] = []
-    for field, entries in evidence.items():
-        if not isinstance(entries, list):
-            continue
-        for entry in entries:
-            if not isinstance(entry, dict):
-                continue
-            url = entry.get("citation_url")
-            if not url:
-                continue
-            citations.append(
-                {
-                    "field": field,
-                    "source_name": entry.get("source_name"),
-                    "source_id": entry.get("source_id"),
-                    "url": url,
-                }
-            )
-    return citations
+    return build_citations_from_evidence(facts_payload)
 
 
 def _cwqz_stems(
@@ -363,6 +341,19 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
     watershed_name = _watershed_name(ctx)
     erosion_hazard = _normalize_text(inner.get("erosion_hazard"))
     ehz_pending = _is_pending_placeholder(erosion_hazard)
+    tceq_segment_id = _normalize_text(inner.get("tceq_segment_id"))
+    water_quality_classification = _normalize_text(inner.get("water_quality_classification"))
+    waterway_distance_ft = _float_value(inner.get("waterway_distance_ft"))
+    cwqz_setback_applies: bool | None = None
+    applies_raw = inner.get("cwqz_setback_applies")
+    if isinstance(applies_raw, bool):
+        cwqz_setback_applies = applies_raw
+    elif isinstance(applies_raw, str):
+        lowered = applies_raw.strip().lower()
+        if lowered in ("true", "yes", "1"):
+            cwqz_setback_applies = True
+        elif lowered in ("false", "no", "0"):
+            cwqz_setback_applies = False
 
     slots: dict[str, str | None] = {
         "wpap_type": wpap_type,
@@ -376,6 +367,12 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
         "watershed_name": watershed_name,
         "erosion_hazard": None if ehz_pending else erosion_hazard,
         "erosion_hazard_pending": str(ehz_pending).lower(),
+        "tceq_segment_id": tceq_segment_id,
+        "water_quality_classification": water_quality_classification,
+        "waterway_distance_ft": None if waterway_distance_ft is None else str(waterway_distance_ft),
+        "cwqz_setback_applies": None
+        if cwqz_setback_applies is None
+        else str(cwqz_setback_applies).lower(),
     }
 
     missing_inputs: list[MissingInput] = []
@@ -461,6 +458,33 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
     )
     stems.extend(composite_stems)
     missing_inputs.extend(composite_gaps)
+
+    if tceq_segment_id or water_quality_classification:
+        wq_parts: list[str] = []
+        if tceq_segment_id:
+            wq_parts.append(f"TCEQ segment {tceq_segment_id}")
+        if water_quality_classification:
+            wq_parts.append(f"classification {water_quality_classification}")
+        stems.append(
+            "Water-quality classification from governed facts: "
+            + "; ".join(wq_parts)
+            + ". Do not invent numeric WQ criteria beyond these labels."
+        )
+    if waterway_distance_ft is not None:
+        stems.append(
+            f"Distance to nearest modeled waterway ≈ {waterway_distance_ft:.0f} ft "
+            "(proximity for setback context — not a surveyed buffer)."
+        )
+    if cwqz_setback_applies is True:
+        stems.append(
+            "Governed facts flag CWQZ setback as applicable — state the setback when "
+            "cwqz_setback_ft is present; do not invent a setback distance."
+        )
+    elif cwqz_setback_applies is False and in_travis:
+        stems.append(
+            "Governed facts indicate CWQZ setback does not apply on this parcel "
+            "(verify against jurisdiction GIS if the project proposes waterway work)."
+        )
 
     return DraftSpec(
         entity_id=ctx.entity_id,

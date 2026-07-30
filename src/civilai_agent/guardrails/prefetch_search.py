@@ -19,9 +19,11 @@ _PREFETCH_FIELD_CODES = (
     "PROPERTY_ADDRESS",
     "PROPOSED_DEVELOPMENT",
     "WATERSHED_INFO",
-    "TCAD_INFO",
+    "CAD_INFO",
     "IMPERVIOUS_REGS",
     "ZONING_REGS",
+    "WATER_SERVICE",
+    "WASTEWATER_SERVICE",
 )
 
 
@@ -35,6 +37,18 @@ def _extract_city(blob: str) -> str:
         if match:
             city = match.group(0).strip()
             return city.split(",", maxsplit=1)[0].strip()
+    return ""
+
+
+def _provider_name_from_service_field(blob: str) -> str:
+    """Pull ``Provider Name: …`` from a WATER/WASTEWATER_SERVICE contact card."""
+    for line in blob.splitlines():
+        stripped = line.strip()
+        if stripped.lower().startswith("provider name:"):
+            return stripped.split(":", maxsplit=1)[1].strip()
+    # Legacy GIS boundary one-liners — first token-ish phrase before a parenthesis.
+    if blob and "Provider Name:" not in blob:
+        return blob.split("(", maxsplit=1)[0].strip()
     return ""
 
 
@@ -62,6 +76,22 @@ def derive_prefetch_queries(
     address = _field_value(field_context, "PROPERTY_ADDRESS")
     zoning = _field_value(field_context, "ZONING_REGS")
     impervious = _field_value(field_context, "IMPERVIOUS_REGS")
+    water_service = _field_value(field_context, "WATER_SERVICE")
+    wastewater_service = _field_value(field_context, "WASTEWATER_SERVICE")
+
+    water_provider = _provider_name_from_service_field(water_service)
+    wastewater_provider = _provider_name_from_service_field(wastewater_service)
+    if address and (water_provider or wastewater_provider):
+        providers = " and ".join(name for name in (water_provider, wastewater_provider) if name)
+        queries.append(
+            normalize_search_query(f"{providers} customer service phone email address {address}")
+        )
+    elif address and juris:
+        queries.append(
+            normalize_search_query(
+                f"water wastewater utility provider contact phone email {address} {juris}"
+            )
+        )
 
     if impervious and juris:
         queries.append(normalize_search_query(f"{juris} impervious cover regulations {impervious}"))
