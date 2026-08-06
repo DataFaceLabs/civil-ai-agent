@@ -20,7 +20,25 @@ from civilai_agent.models.context import (
     WorkbenchContext,
 )
 from civilai_agent.tools.web_search_tool import get_search_session, reset_search_session
+from civilai_agent.tools.zoning_rails import (
+    apply_analysis_basis_to_field_context,
+    set_zoning_scenario,
+)
 from civilai_agent.workflows.section_draft import build_user_prompt
+
+
+def _prepare_zoning_context(context: WorkbenchContext) -> WorkbenchContext:
+    """Install zoning scenario tools state and overlay proposed-rail field_context."""
+    set_zoning_scenario(context.zoning_scenario)
+    if not context.zoning_scenario:
+        return context
+    merged = apply_analysis_basis_to_field_context(
+        context.field_context,
+        context.zoning_scenario,
+    )
+    if merged == context.field_context:
+        return context
+    return context.model_copy(update={"field_context": merged})
 
 
 def _extract_message(result: Any) -> str:
@@ -233,6 +251,7 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
 
 def run_agent(context: WorkbenchContext, *, dry_run: bool = False) -> AgentResponse:
     """Run the Civil Analyst agent and return a framework-agnostic response."""
+    context = _prepare_zoning_context(context)
     if settings().use_draft_pipeline and context.workflow == AgentWorkflow.SECTION_DRAFT:
         from civilai_agent.pipeline.run import run_section_draft
 
