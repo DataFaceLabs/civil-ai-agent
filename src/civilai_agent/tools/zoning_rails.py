@@ -67,10 +67,11 @@ def apply_analysis_basis_to_field_context(
     proposed = _rail_fields(active, "proposed")
     out = dict(field_context)
     for code, raw in proposed.items():
-        if isinstance(raw, dict):
-            value = str(raw.get("value") or "").strip()
-        else:
-            value = str(raw).strip()
+        value = (
+            str(raw.get("value") or "").strip()
+            if isinstance(raw, dict)
+            else str(raw).strip()
+        )
         if value:
             out[str(code)] = value
     out["ZONING_ANALYSIS_BASIS"] = "proposed"
