@@ -22,12 +22,12 @@ sources:
     applicable_counties: [travis]
     applicable_domains: [zoning, platting, impervious_cover, drainage, water_quality, environmental_constraints, easements_setbacks, permitting]
     publisher: City of Austin
-    url: null
+    url: https://library.municode.com/tx/austin/codes/land_development_code
     document_type: municipal_code
     file_format: html
     refresh_cadence: on_version_change
-    last_checked_at: 2026-07-01
-    version: "2026-06"
+    last_checked_at: 2026-08-06
+    version: "fixture-2026-08-06"
     confidence_default: 0.9
     citation_required: true
     can_support_final_finding: true
