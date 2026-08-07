@@ -14,6 +14,7 @@ from civilai_agent.tools.facts import (
     run_determinations,
 )
 from civilai_agent.tools.web_search_tool import web_search_deduped
+from civilai_agent.tools.zoning_rails import get_zoning_comparisons, get_zoning_rails
 
 # NOTE: get_site_payload is deliberately NOT in this agent's toolset. It returns the full
 # multi-section FE SitePayload (~30k tokens for a real entity), and the Strands tool loop
@@ -29,6 +30,12 @@ Rules:
 - When entity_id is available, use get_section_facts for the active section and
   run_determinations before drafting conclusions. Call resolve_parcel only when entity_id
   is not already provided. Fetch only the data the active section needs.
+- For Zoning Change scenarios, call get_zoning_rails and get_zoning_comparisons before
+  drafting zoning conclusions. Cite only ordinance evidence those tools return — never
+  invent section numbers or dimensional standards (lot size, setbacks, coverage, height,
+  IC) from memory; DSI-backed values must come from the tool payload. If analysis_basis
+  is proposed, treat proposed-rail values as the study basis and label the draft as
+  analyzed under proposed zoning.
 - Never perform the same external web search twice; web_search_deduped rejects duplicates.
 - Utility service boundaries indicate coverage only — never claim capacity or will-serve.
 - Do not invent facts when fields are empty or unavailable; state uncertainty explicitly.
@@ -66,6 +73,8 @@ def build_civil_analyst_agent(
             get_section_facts,
             run_determinations,
             get_provenance,
+            get_zoning_rails,
+            get_zoning_comparisons,
             web_search_deduped,
         ],
     )
