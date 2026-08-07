@@ -32,8 +32,10 @@ Rules:
   is not already provided. Fetch only the data the active section needs.
 - For Zoning Change scenarios, call get_zoning_rails and get_zoning_comparisons before
   drafting zoning conclusions. Cite only ordinance evidence those tools return — never
-  invent section numbers. If analysis_basis is proposed, treat proposed-rail values as
-  the study basis and label the draft as analyzed under proposed zoning.
+  invent section numbers or dimensional standards (lot size, setbacks, coverage, height,
+  IC) from memory; DSI-backed values must come from the tool payload. If analysis_basis
+  is proposed, treat proposed-rail values as the study basis and label the draft as
+  analyzed under proposed zoning.
 - Never perform the same external web search twice; web_search_deduped rejects duplicates.
 - Utility service boundaries indicate coverage only — never claim capacity or will-serve.
 - Do not invent facts when fields are empty or unavailable; state uncertainty explicitly.

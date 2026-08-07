@@ -113,7 +113,9 @@ def get_zoning_rails() -> str:
 def get_zoning_comparisons() -> str:
     """Return per-fact baseline vs proposed diffs, risks, and ordinance evidence.
 
-    Never invent section numbers or citations — use only evidence arrays returned here.
+    Dimensional facts (lot size, setbacks, coverage, height, IC limit) may come from
+    the District Standards Index (ADR-0009). Never invent section numbers or numeric
+    standards — use only evidence arrays and values returned here.
     """
     raw = get_zoning_scenario()
     active = _active_scenario(raw)
