@@ -80,6 +80,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
     """Compose the single user prompt for a renderer call."""
     missing = [item.model_dump() for item in spec.missing_inputs]
     stem_lines = "\n".join(f"- {stem}" for stem in spec.stems) or "- (none)"
+    field_values = _render_field_values(spec.facts)
     parts = [
         f"Render the {spec.section_id} section for entity {spec.entity_id}.",
         f"Branch (already selected - do not re-decide): {spec.branch_id}",
@@ -91,8 +92,11 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
         "Required prose stems:",
         stem_lines,
         "",
-        "Governed field values (do not contradict):",
-        _compact(_render_field_values(spec.facts)),
+        "Governed field values (do not contradict). When GOVERNING_JURIS / "
+        "PERMITTING_AUTHORITY_DETAIL / JURISDICTION_STATUS are present they are "
+        "workbench project overrides and supersede any conflicting lake "
+        "jurisdiction_primary or ETJ determination prose:",
+        _compact(field_values),
         "",
         "Determinations:",
         _compact(spec.determinations),
