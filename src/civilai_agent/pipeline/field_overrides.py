@@ -47,23 +47,22 @@ def _with_inner_facts(facts: dict[str, Any] | None, inner: dict[str, Any]) -> di
 
 
 def _determination_items(
-    determinations: dict[str, Any] | list[Any] | None,
+    determinations: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
-    if isinstance(determinations, dict):
-        items = determinations.get("determinations")
-        if isinstance(items, list):
-            return [item for item in items if isinstance(item, dict)]
-    if isinstance(determinations, list):
-        return [item for item in determinations if isinstance(item, dict)]
+    if not isinstance(determinations, dict):
+        return []
+    items = determinations.get("determinations")
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, dict)]
     return []
 
 
 def _rewrite_determinations(
-    determinations: dict[str, Any] | list[Any] | None,
+    determinations: dict[str, Any] | None,
     *,
     governing: str,
     permitting: str,
-) -> dict[str, Any] | list[Any] | None:
+) -> dict[str, Any] | None:
     """Rewrite jurisdiction determination inputs/conclusions to match workbench values."""
     items = _determination_items(determinations)
     if not items:
@@ -135,9 +134,9 @@ def _rewrite_determinations(
 
     if not changed:
         return determinations
-    if isinstance(determinations, dict):
-        return {**determinations, "determinations": rewritten}
-    return rewritten
+    if determinations is None:
+        return {"determinations": rewritten}
+    return {**determinations, "determinations": rewritten}
 
 
 def apply_field_context_overrides(
