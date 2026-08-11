@@ -96,7 +96,11 @@ def _rewrite_determinations(
                     "jurisdiction.jurisdiction_primary",
                     "jurisdiction_primary",
                 ):
-                    if key in next_inputs or det_id == "jurisdiction" or not isinstance(inputs, dict):
+                    if (
+                        key in next_inputs
+                        or det_id == "jurisdiction"
+                        or not isinstance(inputs, dict)
+                    ):
                         next_inputs[key] = governing
                         changed = True
                 if looks_city or looks_etj or "jurisdiction.in_etj" in next_inputs:
@@ -112,8 +116,10 @@ def _rewrite_determinations(
                 changed = True
             next_item["inputs_used"] = next_inputs
         conclusion = str(item.get("conclusion") or "")
-        if governing and conclusion and (
-            "etj" in conclusion.lower() or "extraterritorial" in conclusion.lower()
+        if (
+            governing
+            and conclusion
+            and ("etj" in conclusion.lower() or "extraterritorial" in conclusion.lower())
         ):
             # Drop stale ETJ conclusions when the workbench jurisdiction changed;
             # the renderer should use workbench field values + rewritten inputs.
@@ -142,11 +148,7 @@ def apply_field_context_overrides(
     if not field_context:
         return ctx
 
-    overrides = {
-        code: value.strip()
-        for code, value in field_context.items()
-        if str(value).strip()
-    }
+    overrides = {code: value.strip() for code, value in field_context.items() if str(value).strip()}
     if not overrides:
         return ctx
 

@@ -54,9 +54,7 @@ def test_apply_field_context_overrides_replaces_stale_etj_jurisdiction() -> None
     assert "extraterritorial" not in str(det["conclusion"]).lower()
     assert "City of Georgetown, Williamson County" in str(det["conclusion"])
     inputs = det["inputs_used"]
-    assert inputs["jurisdiction.jurisdiction_primary"] == (
-        "City of Georgetown, Williamson County"
-    )
+    assert inputs["jurisdiction.jurisdiction_primary"] == ("City of Georgetown, Williamson County")
     assert inputs["jurisdiction.in_etj"] is False
     assert inputs["jurisdiction.in_city_limits"] is True
 
