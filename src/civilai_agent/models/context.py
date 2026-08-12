@@ -117,6 +117,8 @@ class TraceSummary(BaseModel):
     output_tokens: int | None = None
     web_search_queries: int = 0
     dedupe_hits: int = 0
+    # Prefetch + tool-loop entries (query + hits) for workbench debug / audit.
+    web_search_trace: tuple[dict[str, Any], ...] = ()
 
 
 class AgentResponse(BaseModel):

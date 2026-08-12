@@ -113,6 +113,7 @@ class SearchSession:
     def __init__(self, config: WebSearchConfig | None = None) -> None:
         self.config = config or WebSearchConfig()
         self._seen: set[str] = set()
+        self._results_by_key: dict[str, tuple[WebSearchResult, ...]] = {}
         self.dedupe_hits = 0
         self.executed_queries = 0
         self._trace_entries: list[WebSearchTraceEntry] = []
@@ -136,16 +137,19 @@ class SearchSession:
         key = self._normalize_key(query, entity_id)
         if key in self._seen:
             self.dedupe_hits += 1
+            prior = self._results_by_key.get(key, ())
             logger.info("web_search dedupe hit: %s", query)
             self._trace_entries.append(
-                WebSearchTraceEntry(query=query, results=(), dedupe_hit=True)
+                WebSearchTraceEntry(query=query, results=prior, dedupe_hit=True)
             )
-            return ()
+            # Return prior hits so prefetch + tool-loop reuse does not look empty.
+            return prior
 
         cache_key = _cache_key(normalize_search_query(query), self.config)
         cached = _from_cache(cache_key)
         if cached is not None:
             self._seen.add(key)
+            self._results_by_key[key] = cached
             self.dedupe_hits += 1
             self._trace_entries.append(
                 WebSearchTraceEntry(query=query, results=cached, dedupe_hit=True)
@@ -166,6 +170,7 @@ class SearchSession:
                 )
 
         self._seen.add(key)
+        self._results_by_key[key] = results
         self.executed_queries += 1
         _search_cache[cache_key] = (time.monotonic(), results)
         self._trace_entries.append(

@@ -236,6 +236,7 @@ def run_legacy_agent(context: WorkbenchContext, *, dry_run: bool = False) -> Age
         output_tokens=output_tokens,
         web_search_queries=session.executed_queries,
         dedupe_hits=session.dedupe_hits,
+        web_search_trace=tuple(entry.model_dump(mode="json") for entry in web_search_trace),
     )
 
     structured_dict = structured.model_dump() if structured is not None else None
