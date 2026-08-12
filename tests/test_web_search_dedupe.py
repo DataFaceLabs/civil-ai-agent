@@ -43,8 +43,15 @@ def test_search_session_dedupes_same_query() -> None:
         first = session.search("Austin zoning code", entity_id="ent-1")
         second = session.search("Austin zoning code", entity_id="ent-1")
         assert len(first) == 1
-        assert second == ()
+        # Dedupe skips the provider but still returns the prior hits so the
+        # model / debug trace do not see an empty search after prefetch.
+        assert second == first
         assert session.dedupe_hits == 1
         assert _FakeProvider.calls == 1
+        trace = session.get_trace()
+        assert len(trace) == 2
+        assert trace[0].dedupe_hit is False
+        assert trace[1].dedupe_hit is True
+        assert len(trace[1].results) == 1
     finally:
         ws.get_web_search_provider = original
