@@ -30,6 +30,20 @@ _JURISDICTION_FE_CODES = frozenset(
     }
 )
 
+# CAD appraisal columns leak into Parcel drafts via parcel-overview lake facts even
+# when Prompt Lab field_context omitted them. Keep each key only when field_context
+# carries that lake key or the FE compose code that surfaces it.
+_PARCEL_APPRAISAL_FACT_ALLOW: dict[str, frozenset[str]] = {
+    "market_value_usd": frozenset({"market_value_usd", "CAD_VALUATION", "TCAD_VALUATION"}),
+    "land_value_usd": frozenset({"land_value_usd", "CAD_VALUATION", "TCAD_VALUATION"}),
+    "improvement_value_usd": frozenset(
+        {"improvement_value_usd", "CAD_VALUATION", "TCAD_VALUATION"}
+    ),
+    "living_area_sqft": frozenset({"living_area_sqft", "BUILDING_DETAIL"}),
+}
+_PARCEL_APPRAISAL_LAKE_KEYS = tuple(_PARCEL_APPRAISAL_FACT_ALLOW)
+_PARCEL_SECTION_IDS = frozenset({"parcel", "parcel-overview"})
+
 
 def _inner_facts(facts: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(facts, dict):
@@ -209,3 +223,56 @@ def apply_field_context_overrides(
             "determinations": determinations,
         }
     )
+
+
+def _field_context_allows_appraisal_fact(
+    field_context: dict[str, str] | None, lake_key: str
+) -> bool:
+    if not field_context:
+        return False
+    for code in _PARCEL_APPRAISAL_FACT_ALLOW[lake_key]:
+        raw = field_context.get(code)
+        if raw is not None and str(raw).strip():
+            return True
+    return False
+
+
+def redact_unprompted_parcel_appraisal_facts(
+    ctx: SectionContext,
+    field_context: dict[str, str] | None,
+) -> SectionContext:
+    """Omit CAD appraisal lake keys from parcel facts unless Prompt Lab allowed them.
+
+    ``_compact(field_values)`` dumps the inner parcel-overview dict. Valuation and
+    living-area columns are in that bag by default; drop them unless field_context
+    includes the lake key or the FE compose code (CAD_VALUATION / BUILDING_DETAIL).
+    """
+    if ctx.section_id not in _PARCEL_SECTION_IDS:
+        return ctx
+    facts_payload = ctx.facts if isinstance(ctx.facts, dict) else None
+    if not facts_payload:
+        return ctx
+
+    drop_keys = {
+        key
+        for key in _PARCEL_APPRAISAL_LAKE_KEYS
+        if not _field_context_allows_appraisal_fact(field_context, key)
+    }
+    if not drop_keys:
+        return ctx
+
+    inner = _inner_facts(facts_payload)
+    evidence = facts_payload.get("evidence")
+    facts_changed = any(key in inner for key in drop_keys)
+    evidence_changed = isinstance(evidence, dict) and any(key in evidence for key in drop_keys)
+    if not facts_changed and not evidence_changed:
+        return ctx
+
+    new_inner = {key: value for key, value in inner.items() if key not in drop_keys}
+    new_payload = _with_inner_facts(facts_payload, new_inner)
+    if evidence_changed and isinstance(new_payload, dict) and isinstance(evidence, dict):
+        new_payload = {
+            **new_payload,
+            "evidence": {key: value for key, value in evidence.items() if key not in drop_keys},
+        }
+    return ctx.model_copy(update={"facts": new_payload})
