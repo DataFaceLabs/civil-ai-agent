@@ -28,7 +28,13 @@ def _scenario(*, basis: str = "proposed", status: str = "computed") -> dict:
                         "ZONING_REGS": {
                             "value": "Proposed MF-4: LDC §25-2-492 excerpt",
                             "origin": "regtext",
-                        }
+                        },
+                        "MIN_LOT_SIZE": {"value": "12,000 sq ft", "origin": "dsi"},
+                        "SETBACKS": {
+                            "value": "Front: 20 ft; Side: 10 ft; Rear: 10 ft",
+                            "origin": "dsi",
+                        },
+                        "IMPERVIOUS_COVER_LIMIT": {"value": "50%", "origin": "dsi"},
                     }
                 },
                 "comparisons": [
@@ -53,11 +59,35 @@ def _scenario(*, basis: str = "proposed", status: str = "computed") -> dict:
 
 def test_apply_analysis_basis_overlays_proposed_fields() -> None:
     merged = apply_analysis_basis_to_field_context(
-        {"ZONING_REGS": "SF-2"},
+        {
+            "ZONING_REGS": "SF-2",
+            "ZONING_ANALYSIS_BASIS": "baseline",
+            "ZONING_SCENARIO_LABEL": "Existing",
+        },
         _scenario(),
     )
     assert "MF-4" in merged["ZONING_REGS"]
     assert merged["ZONING_ANALYSIS_BASIS"] == "proposed"
+    assert merged["ZONING_SCENARIO_LABEL"] == "Rezone to MF-4"
+
+
+def test_apply_analysis_basis_does_not_add_unallowlisted_dsi_codes() -> None:
+    merged = apply_analysis_basis_to_field_context(
+        {
+            "PROPERTY_ADDRESS": "RR 2338, Georgetown, TX",
+            "GOVERNING_JURIS": "Georgetown",
+        },
+        _scenario(),
+    )
+    assert merged == {
+        "PROPERTY_ADDRESS": "RR 2338, Georgetown, TX",
+        "GOVERNING_JURIS": "Georgetown",
+    }
+    assert "MIN_LOT_SIZE" not in merged
+    assert "SETBACKS" not in merged
+    assert "IMPERVIOUS_COVER_LIMIT" not in merged
+    assert "ZONING_REGS" not in merged
+    assert "ZONING_ANALYSIS_BASIS" not in merged
 
 
 def test_apply_analysis_basis_ignores_draft() -> None:

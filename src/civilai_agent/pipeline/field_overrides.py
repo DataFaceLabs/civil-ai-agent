@@ -44,6 +44,35 @@ _PARCEL_APPRAISAL_FACT_ALLOW: dict[str, frozenset[str]] = {
 _PARCEL_APPRAISAL_LAKE_KEYS = tuple(_PARCEL_APPRAISAL_FACT_ALLOW)
 _PARCEL_SECTION_IDS = frozenset({"parcel", "parcel-overview"})
 
+# Zoning / DSI dimensionals belong on the Zoning section. Parcel Prompt Lab may
+# include jurisdiction/LDC tokens without asking for the MF-1 schedule.
+_ZONING_DIMENSIONAL_FE_CODES = frozenset(
+    {
+        "ZONING_REGS",
+        "ZONING_DISTRICT",
+        "MIN_LOT_SIZE",
+        "MIN_LOT_WIDTH",
+        "SETBACKS",
+        "MAX_BUILDING_COVERAGE",
+        "MAX_BUILDING_HEIGHT",
+        "IMPERVIOUS_COVER_LIMIT",
+        "IMPERVIOUS_REGS",
+        "EASEMENTS_SETBACKS",
+        "COMPATIBILITY_STDS",
+        "ZONING_ANALYSIS_BASIS",
+        "ZONING_SCENARIO_LABEL",
+    }
+)
+_ZONING_LAKE_FACT_KEYS = frozenset(
+    {
+        "zoning_code",
+        "zoning_base",
+        "zoning_description",
+        *_ZONING_DIMENSIONAL_FE_CODES,
+    }
+)
+_ZONING_DETERMINATION_IDS = frozenset({"zoning_district", "zoning_applies"})
+
 
 def _inner_facts(facts: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(facts, dict):
@@ -237,6 +266,20 @@ def _field_context_allows_appraisal_fact(
     return False
 
 
+def strip_zoning_dsi_from_field_context(
+    field_context: dict[str, str],
+    section_id: str | None,
+) -> dict[str, str]:
+    """Drop DSI dimensionals from non-zoning field_context (Prompt Lab may have selected them)."""
+    if (section_id or "").strip() == "zoning":
+        return field_context
+    return {
+        code: value
+        for code, value in field_context.items()
+        if code not in _ZONING_DIMENSIONAL_FE_CODES
+    }
+
+
 def redact_unprompted_parcel_appraisal_facts(
     ctx: SectionContext,
     field_context: dict[str, str] | None,
@@ -276,3 +319,69 @@ def redact_unprompted_parcel_appraisal_facts(
             "evidence": {key: value for key, value in evidence.items() if key not in drop_keys},
         }
     return ctx.model_copy(update={"facts": new_payload})
+
+
+def _field_context_allows_zoning(field_context: dict[str, str] | None) -> bool:
+    if not field_context:
+        return False
+    for code in _ZONING_DIMENSIONAL_FE_CODES:
+        raw = field_context.get(code)
+        if raw is not None and str(raw).strip():
+            return True
+    return False
+
+
+def redact_unprompted_parcel_zoning_context(
+    ctx: SectionContext,
+    field_context: dict[str, str] | None,
+) -> SectionContext:
+    """Omit zoning/DSI facts and determinations from parcel unless Prompt Lab allowed them.
+
+    Entity-wide ``run_determinations`` always includes ``zoning_district``. Descriptive
+    dispatch used to dump that full set into the Parcel renderer as governed facts,
+    which produced MF-1 development-standards prose the Parcel template never asked for.
+    """
+    if ctx.section_id not in _PARCEL_SECTION_IDS:
+        return ctx
+    if _field_context_allows_zoning(field_context):
+        return ctx
+
+    facts_payload = ctx.facts if isinstance(ctx.facts, dict) else None
+    inner = _inner_facts(facts_payload)
+    evidence = facts_payload.get("evidence") if isinstance(facts_payload, dict) else None
+    drop_fact_keys = {key for key in _ZONING_LAKE_FACT_KEYS if key in inner}
+    drop_evidence_keys = (
+        {key for key in _ZONING_LAKE_FACT_KEYS if key in evidence}
+        if isinstance(evidence, dict)
+        else set()
+    )
+
+    items = _determination_items(ctx.determinations)
+    kept_dets = [
+        item
+        for item in items
+        if str(item.get("determination_id") or "") not in _ZONING_DETERMINATION_IDS
+    ]
+    dets_changed = len(kept_dets) != len(items)
+
+    if not drop_fact_keys and not drop_evidence_keys and not dets_changed:
+        return ctx
+
+    updates: dict[str, Any] = {}
+    if drop_fact_keys or drop_evidence_keys:
+        new_inner = {key: value for key, value in inner.items() if key not in drop_fact_keys}
+        new_payload = _with_inner_facts(facts_payload, new_inner)
+        if drop_evidence_keys and isinstance(new_payload, dict) and isinstance(evidence, dict):
+            new_payload = {
+                **new_payload,
+                "evidence": {
+                    key: value for key, value in evidence.items() if key not in drop_evidence_keys
+                },
+            }
+        updates["facts"] = new_payload
+    if dets_changed:
+        if ctx.determinations is None:
+            updates["determinations"] = {"determinations": kept_dets}
+        else:
+            updates["determinations"] = {**ctx.determinations, "determinations": kept_dets}
+    return ctx.model_copy(update=updates)

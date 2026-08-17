@@ -52,7 +52,12 @@ def apply_analysis_basis_to_field_context(
     field_context: dict[str, str],
     zoning_scenario: dict[str, Any] | None,
 ) -> dict[str, str]:
-    """When analysis_basis is proposed, overlay proposed zoning FE codes into field_context."""
+    """When analysis_basis is proposed, overlay proposed zoning FE codes into field_context.
+
+    Only keys already present in ``field_context`` are updated. Prompt Lab scopes
+    section-draft context to that section's allowlist; adding proposed-rail DSI
+    codes (lot size, setbacks, IC) onto Parcel would leak Zoning dimensionals.
+    """
     if not zoning_scenario:
         return field_context
     basis = zoning_scenario.get("analysis_basis") or zoning_scenario.get("analysisBasis")
@@ -66,12 +71,22 @@ def apply_analysis_basis_to_field_context(
         return field_context
     proposed = _rail_fields(active, "proposed")
     out = dict(field_context)
+    allow = {code for code, value in field_context.items() if str(value).strip()}
+    if not allow:
+        return field_context
     for code, raw in proposed.items():
+        key = str(code)
+        if key not in allow:
+            continue
         value = str(raw.get("value") or "").strip() if isinstance(raw, dict) else str(raw).strip()
         if value:
-            out[str(code)] = value
-    out["ZONING_ANALYSIS_BASIS"] = "proposed"
-    out["ZONING_SCENARIO_LABEL"] = str(active.get("label") or "")
+            out[key] = value
+    if "ZONING_ANALYSIS_BASIS" in allow:
+        out["ZONING_ANALYSIS_BASIS"] = "proposed"
+    if "ZONING_SCENARIO_LABEL" in allow:
+        label = str(active.get("label") or "").strip()
+        if label:
+            out["ZONING_SCENARIO_LABEL"] = label
     return out
 
 
