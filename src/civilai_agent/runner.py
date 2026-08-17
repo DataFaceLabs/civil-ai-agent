@@ -28,17 +28,35 @@ from civilai_agent.workflows.section_draft import build_user_prompt
 
 
 def _prepare_zoning_context(context: WorkbenchContext) -> WorkbenchContext:
-    """Install zoning scenario tools state and overlay proposed-rail field_context."""
-    set_zoning_scenario(context.zoning_scenario)
-    if not context.zoning_scenario:
-        return context
-    merged = apply_analysis_basis_to_field_context(
-        context.field_context,
-        context.zoning_scenario,
+    """Install zoning scenario tools state and overlay proposed-rail field_context.
+
+    Rails tools stay zoning-section-only so Parcel/Access drafts cannot pull DSI
+    dimensionals via get_zoning_rails / get_zoning_comparisons. Non-zoning
+    field_context is stripped of DSI codes even when Prompt Lab selected them.
+    Proposed-rail overlay then updates only remaining allowlisted keys.
+    """
+    from civilai_agent.pipeline.field_overrides import strip_zoning_dsi_from_field_context
+
+    section = (context.active_section_id or "").strip()
+    if section == "zoning":
+        set_zoning_scenario(context.zoning_scenario)
+    else:
+        set_zoning_scenario(None)
+    stripped = strip_zoning_dsi_from_field_context(context.field_context, section)
+    working = (
+        context
+        if stripped == context.field_context
+        else context.model_copy(update={"field_context": stripped})
     )
-    if merged == context.field_context:
-        return context
-    return context.model_copy(update={"field_context": merged})
+    if not working.zoning_scenario:
+        return working
+    merged = apply_analysis_basis_to_field_context(
+        working.field_context,
+        working.zoning_scenario,
+    )
+    if merged == working.field_context:
+        return working
+    return working.model_copy(update={"field_context": merged})
 
 
 def _extract_message(result: Any) -> str:

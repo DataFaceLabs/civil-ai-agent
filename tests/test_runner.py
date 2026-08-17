@@ -7,6 +7,7 @@ import pytest
 
 from civilai_agent.models.context import AgentWorkflow, WorkbenchContext
 from civilai_agent.runner import run_agent
+from civilai_agent.tools.zoning_rails import get_zoning_scenario, set_zoning_scenario
 
 
 @pytest.fixture(autouse=True)
@@ -182,3 +183,96 @@ def test_section_draft_runs_when_fields_present_without_entity(mock_build: Magic
     response = run_agent(context)
     mock_build.assert_called_once()
     assert response.structured_draft is not None
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_parcel_draft_does_not_install_zoning_rails(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    agent.model.config = {}
+    mock_build.return_value = agent
+    set_zoning_scenario({"analysis_basis": "proposed"})
+
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="parcel",
+        request="Draft parcel section.",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        field_context={
+            "PROPERTY_ADDRESS": "RR 2338, Georgetown, TX",
+            "GOVERNING_JURIS": "Georgetown",
+            "MIN_LOT_SIZE": "12,000 sq ft",
+            "SETBACKS": "Front: 20 ft; Side: 10 ft; Rear: 10 ft",
+            "IMPERVIOUS_COVER_LIMIT": "50%",
+            "ZONING_REGS": "MF-1 — Sec. 6.02.080",
+            "ZONING_ANALYSIS_BASIS": "proposed",
+            "ZONING_SCENARIO_LABEL": "Rezone to MF-1",
+        },
+        zoning_scenario={
+            "analysis_basis": "proposed",
+            "active_scenario_id": "sc-1",
+            "scenarios": [
+                {
+                    "scenario_id": "sc-1",
+                    "status": "accepted",
+                    "label": "MF-1",
+                    "proposed": {
+                        "fields": {
+                            "MIN_LOT_SIZE": {"value": "12,000 sq ft"},
+                            "ZONING_REGS": {"value": "MF-1"},
+                        }
+                    },
+                }
+            ],
+        },
+    )
+    response = run_agent(context)
+    mock_build.assert_called_once()
+    assert response.structured_draft is not None
+    assert get_zoning_scenario() is None
+    # Prompt Lab parcel allowlist must not gain DSI codes from the proposed rail.
+    # (run_legacy_agent dumps field_context into the user prompt.)
+    user_prompt = agent.call_args.args[0]
+    assert "12,000 sq ft" not in user_prompt
+    assert "MIN_LOT_SIZE" not in user_prompt
+    assert "IMPERVIOUS_COVER_LIMIT" not in user_prompt
+    assert "ZONING_REGS" not in user_prompt
+    assert "ZONING_ANALYSIS_BASIS" not in user_prompt
+    assert "Rezone to MF-1" not in user_prompt
+    assert "RR 2338, Georgetown, TX" in user_prompt
+    set_zoning_scenario(None)
+
+
+@patch("civilai_agent.runner.build_civil_analyst_agent")
+def test_zoning_draft_installs_zoning_rails(mock_build: MagicMock) -> None:
+    agent = MagicMock()
+    agent.return_value = _structured_json()
+    agent.model.config = {}
+    mock_build.return_value = agent
+    scenario = {
+        "analysis_basis": "proposed",
+        "active_scenario_id": "sc-1",
+        "scenarios": [
+            {
+                "scenario_id": "sc-1",
+                "status": "accepted",
+                "label": "MF-1",
+                "proposed": {"fields": {"ZONING_REGS": {"value": "MF-1"}}},
+            }
+        ],
+    }
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="zoning",
+        request="Draft zoning section.",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        field_context={"ZONING_REGS": "SF-2"},
+        zoning_scenario=scenario,
+    )
+    run_agent(context)
+    installed = get_zoning_scenario()
+    assert installed is not None
+    assert installed["active_scenario_id"] == "sc-1"
+    set_zoning_scenario(None)

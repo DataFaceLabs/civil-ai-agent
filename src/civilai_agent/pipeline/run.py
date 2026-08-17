@@ -422,10 +422,12 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
     from civilai_agent.pipeline.field_overrides import (
         apply_field_context_overrides,
         redact_unprompted_parcel_appraisal_facts,
+        redact_unprompted_parcel_zoning_context,
     )
 
     ctx = apply_field_context_overrides(ctx, context.field_context)
     ctx = redact_unprompted_parcel_appraisal_facts(ctx, context.field_context)
+    ctx = redact_unprompted_parcel_zoning_context(ctx, context.field_context)
     gated = zero_fact_gate(ctx)
     if gated is not None:
         return finalize_pipeline_response(gated)

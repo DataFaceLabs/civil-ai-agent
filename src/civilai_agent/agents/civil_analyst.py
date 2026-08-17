@@ -30,12 +30,13 @@ Rules:
 - When entity_id is available, use get_section_facts for the active section and
   run_determinations before drafting conclusions. Call resolve_parcel only when entity_id
   is not already provided. Fetch only the data the active section needs.
-- For Zoning Change scenarios, call get_zoning_rails and get_zoning_comparisons before
-  drafting zoning conclusions. Cite only ordinance evidence those tools return — never
-  invent section numbers or dimensional standards (lot size, setbacks, coverage, height,
-  IC) from memory; DSI-backed values must come from the tool payload. If analysis_basis
-  is proposed, treat proposed-rail values as the study basis and label the draft as
-  analyzed under proposed zoning.
+- When drafting the zoning section and a Zoning Change scenario is active, call
+  get_zoning_rails and get_zoning_comparisons before drafting zoning conclusions. Do not
+  call those tools for other sections. Cite only ordinance evidence those tools return —
+  never invent section numbers or dimensional standards (lot size, setbacks, coverage,
+  height, IC) from memory; DSI-backed values must come from the tool payload. If
+  analysis_basis is proposed, treat proposed-rail values as the study basis and label the
+  draft as analyzed under proposed zoning.
 - Never perform the same external web search twice; web_search_deduped rejects duplicates.
 - Utility service boundaries indicate coverage only — never claim capacity or will-serve.
 - Do not invent facts when fields are empty or unavailable; state uncertainty explicitly.
