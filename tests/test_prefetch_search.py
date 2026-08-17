@@ -54,11 +54,22 @@ def test_utility_provider_contact_prefetch_from_service_fields() -> None:
     queries = derive_prefetch_queries(
         {
             "PROPERTY_ADDRESS": "2102 Matterhorn Ln, Austin, TX 78704",
-            "WATER_SERVICE": ("Provider Name: Austin Water\nProvider Phone: 512-494-9400"),
-            "WASTEWATER_SERVICE": "Provider Name: Austin Water Wastewater",
+            "WATER_SERVICE": ("Austin Water\nProvider Phone: 512-494-9400"),
+            "WASTEWATER_SERVICE": "Austin Water Wastewater",
         },
         max_queries=3,
     )
     assert queries
     assert any("austin water" in q.lower() and "phone" in q.lower() for q in queries)
     assert any("2102 matterhorn" in q.lower() for q in queries)
+
+
+def test_utility_provider_contact_prefetch_accepts_legacy_provider_name_label() -> None:
+    queries = derive_prefetch_queries(
+        {
+            "PROPERTY_ADDRESS": "2102 Matterhorn Ln, Austin, TX 78704",
+            "WATER_SERVICE": "Provider Name: Manville WSC\nProvider Phone: 512-555-0100",
+        },
+        max_queries=3,
+    )
+    assert any("manville wsc" in q.lower() and "phone" in q.lower() for q in queries)
