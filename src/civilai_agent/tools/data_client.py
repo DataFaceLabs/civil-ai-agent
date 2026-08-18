@@ -123,6 +123,21 @@ class DataApiClient:
         # The old /v1/fe/site?entity_id=... query-param route never existed and 404s.
         return self._request("GET", f"/v1/fe/site/by-entity/{entity_id}")
 
+    def hydrate_regtext(
+        self,
+        jurisdiction_key: str,
+        zoning_code: str | None = None,
+        families: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """POST /v1/regtext/hydrate — parse indexed ordinance fact families."""
+        body: dict[str, Any] = {
+            "jurisdiction_key": jurisdiction_key,
+            "families": families or ["impervious"],
+        }
+        if zoning_code:
+            body["zoning_code"] = zoning_code
+        return self._request("POST", "/v1/regtext/hydrate", json=body)
+
     def get_provenance(self, entity_id: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/entities/{entity_id}/provenance")
 
