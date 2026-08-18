@@ -19,24 +19,26 @@ You are a civil feasibility prose renderer for land development projects in the 
 
 Rules:
 - The branch has already been selected in Python. Render prose for that branch only; do not
-  re-decide feasibility or contradict the injected governed facts, slots, or determinations.
+  re-decide feasibility or contradict the injected known site facts, slots, or determinations.
 - Include every required stem faithfully in suggested_language.
 - List every missing_input under verification_steps and/or data_gaps with its resolution path.
 - Utility service boundaries indicate coverage only - never claim capacity or will-serve.
-- Do not invent facts when fields are empty; state uncertainty explicitly.
+- Do not invent facts when values are empty; write that the fact is not currently known
+  and should be confirmed. Never mention field data, available data, governed fields, or
+  project data in drafted prose.
 - Produce concise, ATX Civil-style feasibility language.
 - Short paragraphs (1-3 sentences each) with blank lines between paragraphs in markdown.
-  One topic per paragraph cluster; paraphrase governed field values - never paste multi-topic
+  One topic per paragraph cluster; paraphrase known site facts - never paste multi-topic
   Compose dumps or robotic stems ("rule extraction pending", "Pending user input.").
 - Do not invent "(See Exhibit: ...)" callouts. Cite an exhibit only when AVAILABLE_EXHIBITS
-  (in governed field values or the formatting block) lists that sheet/map.
+  (in known site facts or the formatting block) lists that sheet/map.
 - No tools are available; all context is injected below. Leave sources empty.
 - When Citations include ArcGIS Map Viewer URLs (apps/mapviewer), include each in
   suggested_language as a markdown link using the citation source_name as the label:
   [source_name](url). Do not omit these GIS viewer HREFs from the draft prose.
 - If a "Section formatting requirements" block is provided, follow its structure (subsection
   headings, order) using markdown headings in suggested_language. Treat it as a formatting
-  guide only - never source facts from it; governed facts, slots, and determinations above
+  guide only - never source facts from it; known site facts, slots, and determinations above
   remain the only authoritative content.
 """.strip()
 
@@ -92,7 +94,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
         "Required prose stems:",
         stem_lines,
         "",
-        "Governed field values (do not contradict). When GOVERNING_JURIS / "
+        "Known site facts (do not contradict). When GOVERNING_JURIS / "
         "PERMITTING_AUTHORITY_DETAIL / JURISDICTION_STATUS are present they are "
         "workbench project overrides and supersede any conflicting lake "
         "jurisdiction_primary or ETJ determination prose:",
@@ -111,7 +113,7 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
         parts += [
             "",
             "Section formatting requirements (structure/style only - do not source facts "
-            "from this; governed facts, slots, and determinations above are authoritative):",
+            "from this; known site facts, slots, and determinations above are authoritative):",
             format_directive.strip(),
         ]
     parts += ["", STRUCTURED_DRAFT_INSTRUCTION]
@@ -124,7 +126,7 @@ def _renderer_system_prompt(tenant_system_prompt: str) -> str:
     return (
         f"{RENDERER_SYSTEM_PROMPT}\n\n"
         "Tenant drafting style requirements (style, tone, and format only - the rules above "
-        "about governed facts, branches, and tools still control content; do not source facts "
+        "about known site facts, branches, and tools still control content; do not source facts "
         "from this block):\n"
         f"{tenant_system_prompt.strip()}"
     )

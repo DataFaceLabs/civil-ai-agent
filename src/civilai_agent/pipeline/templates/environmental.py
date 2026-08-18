@@ -29,8 +29,9 @@ def _watershed_paragraph(spec: DraftSpec) -> str | None:
 def _ehz_paragraph(spec: DraftSpec) -> str | None:
     if spec.slots.get("erosion_hazard_pending") == "true":
         return (
-            "Erosion Hazard Zone (EHZ) overlay classification is pending from governed data; "
-            "confirm EHZ applicability with City of Austin GIS before concluding encroachment."
+            "Erosion Hazard Zone (EHZ) overlay classification is not currently known and "
+            "should be confirmed; confirm EHZ applicability with City of Austin GIS before "
+            "concluding encroachment."
         )
     erosion = spec.slots.get("erosion_hazard")
     if erosion:
@@ -68,13 +69,13 @@ def _cwqz_paragraph(spec: DraftSpec) -> str | None:
 
     if waterway:
         return (
-            f"Waterway {waterway} is identified; CWQZ classification or setback could not be "
-            "confirmed from governed data."
+            f"Waterway {waterway} is identified; CWQZ classification or setback is not "
+            "currently known and should be confirmed."
         )
 
     return (
         "No jurisdictional waterway requiring a Critical Water Quality Zone setback was "
-        "identified from governed data."
+        "identified; this should be confirmed."
     )
 
 

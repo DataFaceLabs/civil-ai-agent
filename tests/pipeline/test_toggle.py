@@ -64,7 +64,7 @@ def test_pipeline_toggle_zero_fact_gate_without_llm(
 
     monkeypatch.setattr("civilai_agent.pipeline.run.fetch_section_context", fake_fetch)
     response = run_agent(section_draft_context, dry_run=True)
-    assert "could not be drafted" in response.message
+    assert "not currently known" in response.message
     assert "Would invoke agent" not in response.message
 
 

@@ -208,7 +208,7 @@ def dispatch_flood(ctx: SectionContext) -> DraftSpec:
         branch_id = "flood.unknown"
         tier = 2
         stems = [
-            "State that FEMA flood zone could not be confirmed from governed data.",
+            "State that FEMA flood zone is not currently known and should be confirmed.",
             "Do not assert the parcel is inside or outside the 100-year floodplain.",
         ]
         missing_inputs = [_PANEL_GAP, _DATE_GAP]
@@ -221,8 +221,8 @@ def dispatch_flood(ctx: SectionContext) -> DraftSpec:
             "designated floodplain areas — dispatch on proposed-work scope, not zone alone.",
             "Do not emit the full FS4 study block unless proposed work scope confirms "
             "encroachment; proposed use/scope is not specified.",
-            "When panel or effective date are absent, state they could not be confirmed "
-            "from governed data.",
+            "When panel or effective date are absent, state they are not currently known "
+            "and should be confirmed.",
         ]
         missing_inputs = [_PROPOSED_WORK_GAP, *_panel_data_gaps(panel_id, effective_date)]
         if floodway is None:
@@ -238,8 +238,8 @@ def dispatch_flood(ctx: SectionContext) -> DraftSpec:
         tier = 1
         stems = [
             "Render the FEMA master stem for Zone X (minimal flood hazard).",
-            "When panel or effective date are absent, state they could not be confirmed "
-            "from governed data — never invent a panel number or date.",
+            "When panel or effective date are absent, state they are not currently known "
+            "and should be confirmed — never invent a panel number or date.",
         ]
         missing_inputs = _panel_data_gaps(panel_id, effective_date)
         if floodway is None:

@@ -229,7 +229,7 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
             county = _county_label(jctx.get("jurisdiction_primary") or "the")
             stems = [
                 f"State that municipal limits and zoning district within {county} County "
-                "are not resolved in governed data.",
+                "are not currently known and should be confirmed.",
                 "Do not cite City of Austin or Travis County zoning unless jurisdiction "
                 "facts establish that authority.",
                 "Recommend municipal and county planning verification before asserting a "
@@ -256,15 +256,15 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
             branch_id = "zoning.zoned_city"
             stems = [
                 "According to information provided, identify the zoning district "
-                "from governed facts.",
-                "List overlays only when present in governed facts.",
+                "from known site facts.",
+                "List overlays only when present in known site facts.",
                 "Do not emit a rezoning verdict; proposed use is not specified.",
             ]
         tier = 2
         missing_inputs = [_PROPOSED_USE_GAP]
         if not _overlays_present(inner.get("overlays")):
             stems.append(
-                "No zoning overlay district was identified in governed data for this base "
+                "No zoning overlay district was identified in current site records for this base "
                 "district; combining/overlay suffixes (e.g. -NP, -MU, -CO, -V) are not yet "
                 "captured by the zoning connector. Do not state that no overlays apply — "
                 "recommend verification with City of Austin zoning GIS."
@@ -289,7 +289,7 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
             branch_id = "zoning.pending"
             tier = 2
             stems = [
-                "State that the zoning district could not be confirmed from governed data alone.",
+                "State that the zoning district is not currently known and should be confirmed.",
                 "Do not assert that the county is non-zoning or that no municipal zoning applies "
                 "without a verified zoning lookup.",
                 "Recommend municipal and county planning verification before asserting allowed uses "
@@ -304,7 +304,7 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
         branch_id = "zoning.pending"
         tier = 2
         stems = [
-            "State that zoning could not be resolved from governed data alone.",
+            "State that zoning is not currently known and should be confirmed.",
             "Recommend manual zoning verification; do not assert zoning does not apply.",
         ]
 

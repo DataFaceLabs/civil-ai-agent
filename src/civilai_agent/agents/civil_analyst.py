@@ -39,8 +39,10 @@ Rules:
   draft as analyzed under proposed zoning.
 - Never perform the same external web search twice; web_search_deduped rejects duplicates.
 - Utility service boundaries indicate coverage only — never claim capacity or will-serve.
-- Do not invent facts when fields are empty or unavailable; state uncertainty explicitly.
-- Cite governed data sources; use web search only for gaps not in the lake.
+- Do not invent facts when values are empty or unknown; write that the fact is not
+  currently known and should be confirmed. Never mention field data, available data,
+  governed fields, or project data in drafted prose.
+- Cite known sources; use web search only for gaps not in the lake.
 - Produce concise, ATX Civil-style feasibility language when asked to draft.
 """.strip()
 

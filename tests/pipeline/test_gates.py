@@ -24,7 +24,8 @@ def test_zero_fact_gate_returns_response_when_facts_missing() -> None:
     )
     response = zero_fact_gate(ctx)
     assert response is not None
-    assert "could not be drafted" in response.message
+    assert "not currently known" in response.message
+    assert "governed data" not in response.message.lower()
     assert response.artifacts
     artifact = response.artifacts[0]
     assert artifact.type == "draft_section"
@@ -39,4 +40,4 @@ def test_zero_fact_gate_section_title_in_message() -> None:
     ctx = SectionContext(entity_id="ent-1", section_id="utilities", facts={"facts": {}})
     response = zero_fact_gate(ctx)
     assert response is not None
-    assert "Utilities section" in response.message
+    assert "Utilities facts" in response.message

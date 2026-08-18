@@ -9,6 +9,10 @@ from civilai_agent.guardrails.shared import (
     evaluate_structured_guardrails,
 )
 from civilai_agent.guardrails.structured import SectionDraftOutput, parse_structured_response
+from civilai_agent.guardrails.unknown_fact import (
+    rewrite_structured_draft,
+    rewrite_unknown_fact_prose,
+)
 from civilai_agent.guardrails.web_search_models import WebSearchTraceEntry
 
 
@@ -46,11 +50,12 @@ def finalize_text_output(
             return text, None, warnings
         if web_search_trace:
             structured = _filter_structured_sources(structured, web_search_trace)
+        structured = rewrite_structured_draft(structured)
         warnings = evaluate_structured_guardrails(structured, cfg, section_id=section_id)
         display = structured.suggested_language
     else:
         warnings = evaluate_guardrails(text, cfg, section_id=section_id)
-        display = text
+        display = rewrite_unknown_fact_prose(text)
 
     if cfg.enforce and warnings:
         raise RuntimeError(f"Agent guardrails violated: {'; '.join(warnings)}")
