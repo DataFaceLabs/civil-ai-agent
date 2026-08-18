@@ -38,6 +38,8 @@ class WorkbenchContext(BaseModel):
     client_request: str = ""
     workflow: AgentWorkflow | None = None
     field_context: dict[str, str] = Field(default_factory=dict)
+    # ADR-0008 dual-rail Zoning Change scenario (snake_case project-state shape).
+    zoning_scenario: dict[str, Any] | None = None
     tenant_id: str | None = None
     user_id: str | None = None
     search_run_policy: SearchRunPolicy = Field(default_factory=SearchRunPolicy)
@@ -115,6 +117,8 @@ class TraceSummary(BaseModel):
     output_tokens: int | None = None
     web_search_queries: int = 0
     dedupe_hits: int = 0
+    # Prefetch + tool-loop entries (query + hits) for workbench debug / audit.
+    web_search_trace: tuple[dict[str, Any], ...] = ()
 
 
 class AgentResponse(BaseModel):

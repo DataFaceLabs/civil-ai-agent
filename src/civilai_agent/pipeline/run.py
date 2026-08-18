@@ -13,7 +13,12 @@ from civilai_agent.models.context import (
     TraceSummary,
     WorkbenchContext,
 )
-from civilai_agent.pipeline.fetch import SectionContext, fetch_section_context
+from civilai_agent.pipeline.fetch import (
+    SectionContext,
+    false_ic_gap_warning,
+    fetch_section_context,
+    merge_impervious_hydrate,
+)
 from civilai_agent.pipeline.finalize import (
     append_fact_echo_warnings,
     finalize_pipeline_response,
@@ -167,6 +172,11 @@ def _run_zoning_pipeline(
         )
 
     response = append_fact_echo_warnings(response, spec)
+    warning = false_ic_gap_warning(response.message, ctx.hydrate_impervious_status)
+    if warning:
+        response = response.model_copy(
+            update={"guardrail_warnings": (*response.guardrail_warnings, warning)}
+        )
     return finalize_pipeline_response(response)
 
 
@@ -418,7 +428,19 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
             trace_summary=TraceSummary(tools_used=("pipeline_error",)),
         )
 
-    ctx = fetch_section_context(_data_client(), entity_id, section_id)
+    client = _data_client()
+    ctx = fetch_section_context(client, entity_id, section_id)
+    from civilai_agent.pipeline.field_overrides import (
+        apply_field_context_overrides,
+        redact_unprompted_parcel_appraisal_facts,
+        redact_unprompted_parcel_zoning_context,
+    )
+
+    ctx = apply_field_context_overrides(ctx, context.field_context)
+    ctx = redact_unprompted_parcel_appraisal_facts(ctx, context.field_context)
+    ctx = redact_unprompted_parcel_zoning_context(ctx, context.field_context)
+    if section_id == "zoning":
+        ctx = merge_impervious_hydrate(client, ctx, context.field_context)
     gated = zero_fact_gate(ctx)
     if gated is not None:
         return finalize_pipeline_response(gated)

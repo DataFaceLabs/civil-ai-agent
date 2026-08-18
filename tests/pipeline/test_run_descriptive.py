@@ -93,3 +93,118 @@ def test_descriptive_dry_run_does_not_call_renderer(mock_render: MagicMock) -> N
 
     mock_render.assert_not_called()
     assert "[pipeline dry-run] would render parcel" in response.message
+
+
+@patch("civilai_agent.pipeline.render.render_draft")
+def test_descriptive_pipeline_applies_workbench_jurisdiction_overrides(
+    mock_render: MagicMock,
+) -> None:
+    mock_render.return_value = RenderResult(
+        output=SectionDraftOutput(suggested_language="# Parcel\n\nUpdated."),
+        input_tokens=100,
+        output_tokens=40,
+        model_id="haiku",
+    )
+    lake_ctx = SectionContext(
+        entity_id="ent-1",
+        section_id="parcel",
+        facts={
+            "facts": {
+                "property_acres": "1.88",
+                "jurisdiction_primary": "City of Georgetown (ETJ)",
+            }
+        },
+        determinations={
+            "determinations": [
+                {
+                    "determination_id": "jurisdiction",
+                    "conclusion": (
+                        "The property is within the City of Georgetown "
+                        "extraterritorial jurisdiction (ETJ)."
+                    ),
+                    "inputs_used": {
+                        "jurisdiction.jurisdiction_primary": "City of Georgetown (ETJ)",
+                        "jurisdiction.in_etj": True,
+                    },
+                }
+            ]
+        },
+    )
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="parcel",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        request="Draft the section.",
+        system_prompt="Format: h1 and h2 headings.",
+        field_context={
+            "GOVERNING_JURIS": "City of Georgetown, Williamson County",
+        },
+    )
+    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=lake_ctx):
+        run_section_draft(context, dry_run=False)
+
+    rendered_spec = mock_render.call_args.args[0]
+    facts = rendered_spec.facts["facts"]
+    assert facts["jurisdiction_primary"] == "City of Georgetown, Williamson County"
+    assert facts["GOVERNING_JURIS"] == "City of Georgetown, Williamson County"
+    det = rendered_spec.determinations[0]
+    assert "extraterritorial" not in str(det["conclusion"]).lower()
+
+
+@patch("civilai_agent.pipeline.render.render_draft")
+def test_descriptive_pipeline_drops_unprompted_zoning_dsi(
+    mock_render: MagicMock,
+) -> None:
+    mock_render.return_value = RenderResult(
+        output=SectionDraftOutput(suggested_language="# Parcel\n\nSite only."),
+        input_tokens=100,
+        output_tokens=40,
+        model_id="haiku",
+    )
+    lake_ctx = SectionContext(
+        entity_id="ent-1",
+        section_id="parcel",
+        facts={
+            "facts": {
+                "property_acres": "27.43",
+                "zoning_code": "MF-1",
+                "MIN_LOT_SIZE": "12,000 sq ft",
+                "IMPERVIOUS_COVER_LIMIT": "50%",
+            }
+        },
+        determinations={
+            "determinations": [
+                {"determination_id": "compliance_risk", "conclusion": "moderate"},
+                {
+                    "determination_id": "zoning_district",
+                    "conclusion": (
+                        "MF-1 district. Impervious cover 50% per Georgetown LDC Section 11.02.010."
+                    ),
+                },
+            ]
+        },
+    )
+    context = WorkbenchContext(
+        project_id="test",
+        entity_id="ent-1",
+        active_section_id="parcel",
+        workflow=AgentWorkflow.SECTION_DRAFT,
+        request="Draft the parcel section.",
+        field_context={
+            "PROPERTY_ADDRESS": "RR 2338, Georgetown, TX",
+            "GOVERNING_JURIS": "Georgetown",
+            "COMPLIANCE_RISK": "moderate",
+        },
+    )
+    with patch("civilai_agent.pipeline.run.fetch_section_context", return_value=lake_ctx):
+        run_section_draft(context, dry_run=False)
+
+    rendered_spec = mock_render.call_args.args[0]
+    facts = rendered_spec.facts["facts"]
+    assert "zoning_code" not in facts
+    assert "MIN_LOT_SIZE" not in facts
+    assert "IMPERVIOUS_COVER_LIMIT" not in facts
+    assert facts["property_acres"] == "27.43"
+    det_ids = [item["determination_id"] for item in rendered_spec.determinations]
+    assert det_ids == ["compliance_risk"]

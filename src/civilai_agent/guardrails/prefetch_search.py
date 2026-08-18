@@ -41,14 +41,23 @@ def _extract_city(blob: str) -> str:
 
 
 def _provider_name_from_service_field(blob: str) -> str:
-    """Pull ``Provider Name: …`` from a WATER/WASTEWATER_SERVICE contact card."""
+    """Pull the provider name from a WATER/WASTEWATER_SERVICE contact card.
+
+    Current cards put the bare provider name on the first line. Older cards used
+    ``Provider Name: …``. Legacy GIS boundary one-liners may still wrap notes in
+    parentheses after the name.
+    """
     for line in blob.splitlines():
         stripped = line.strip()
+        if not stripped:
+            continue
         if stripped.lower().startswith("provider name:"):
             return stripped.split(":", maxsplit=1)[1].strip()
-    # Legacy GIS boundary one-liners — first token-ish phrase before a parenthesis.
-    if blob and "Provider Name:" not in blob:
-        return blob.split("(", maxsplit=1)[0].strip()
+        # First non-empty line is the provider name (current format).
+        if stripped.lower().startswith("provider "):
+            # Contact-only residue without a name line — nothing usable.
+            continue
+        return stripped.split("(", maxsplit=1)[0].strip()
     return ""
 
 
