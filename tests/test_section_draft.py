@@ -50,6 +50,8 @@ def test_section_draft_prompt_forbids_interactive_questions() -> None:
     )
     assert "never ask the user" in prompt.lower()
     assert "PROPERTY_ADDRESS: 123 Main St, Austin, TX" in prompt
+    assert "Known site facts:" in prompt
+    assert "Field context:" not in prompt
     assert "unknown entity" in prompt
 
 
@@ -67,3 +69,5 @@ def test_section_draft_prompt_includes_structured_contract() -> None:
         )
     )
     assert '"suggested_language"' in prompt
+    assert "not currently known and should be confirmed" in prompt
+    assert "no governed data is available" not in prompt

@@ -159,7 +159,7 @@ def test_build_renderer_agent_appends_tenant_system_prompt() -> None:
     )
     system_prompt = agent.system_prompt
     assert "Format: h1 and h2 subsections with headings." in system_prompt
-    assert "governed facts, branches, and tools still control content" in system_prompt
+    assert "known site facts, branches, and tools still control content" in system_prompt
     # The pipeline's own mechanical rules (don't re-decide, don't contradict facts) survive.
     assert "re-decide feasibility" in system_prompt
 

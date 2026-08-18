@@ -30,5 +30,7 @@ def test_zone_x_master_stem_without_invented_panel() -> None:
     assert "zone x" in text
     assert "travis county" in text
     assert "48453c" not in text
-    assert "could not be confirmed from governed data" in text
+    assert "not currently known and should be confirmed" in text
+    assert "available field data" not in text
+    assert "governed data" not in text
     assert "regulatory floodway is not mapped" in text

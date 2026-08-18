@@ -51,7 +51,7 @@ def assistant_chat_prompt(context: WorkbenchContext) -> str:
             if value.strip()
         ]
         if field_lines:
-            parts.append("Governed fields:\n" + "\n".join(field_lines))
+            parts.append("Known site facts:\n" + "\n".join(field_lines))
 
     if context.section_body_plain.strip():
         parts.append(

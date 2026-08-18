@@ -63,13 +63,13 @@ def _access_stems(inner: dict[str, Any]) -> list[str]:
         if row_required is not None:
             parts.append(f"required ROW ≈ {row_required:g} ft")
         stems.append(
-            "Right-of-way from governed mobility facts: "
+            "Right-of-way from known site facts: "
             + "; ".join(parts)
             + ". Do not invent dedication widths beyond these values."
         )
     if asmp:
         stems.append(
-            f"ASMP / roadway classification level from governed facts: {asmp}. "
+            f"ASMP / roadway classification level from known site facts: {asmp}. "
             "Confirm frontage and access spacing against the jurisdiction ASMP map."
         )
     return stems

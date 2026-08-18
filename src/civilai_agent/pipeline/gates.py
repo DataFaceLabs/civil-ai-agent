@@ -72,14 +72,14 @@ def zero_fact_gate(ctx: SectionContext) -> AgentResponse | None:
         return None
 
     title = _section_title(ctx.section_id)
-    error_summary = "; ".join(ctx.errors) if ctx.errors else "no governed fields returned"
+    error_summary = "; ".join(ctx.errors) if ctx.errors else "no site facts returned"
     suggested = (
-        f"The {title} section could not be drafted because no governed data is available "
-        f"for entity {ctx.entity_id}. {error_summary}. Verify the entity resolves to a "
+        f"The {title} facts for this site are not currently known and should be confirmed "
+        f"(entity {ctx.entity_id}). {error_summary}. Verify the entity resolves to a "
         "parcel in the ingested corpus before drafting this section."
     )
     data_gaps = [
-        f"Governed {ctx.section_id} facts unavailable for entity {ctx.entity_id}",
+        f"{ctx.section_id} facts not currently known for entity {ctx.entity_id}",
         *([f"fetch error: {e}" for e in ctx.errors]),
     ]
     structured = SectionDraftOutput(

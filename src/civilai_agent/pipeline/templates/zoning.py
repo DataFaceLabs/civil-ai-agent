@@ -26,8 +26,8 @@ def _etj_city(slots: dict[str, str | None]) -> str:
 
 
 def _jurisdiction_caveat(spec: DraftSpec) -> str:
-    juris = spec.slots.get("jurisdiction_primary") or "governed jurisdiction records"
-    return f"Jurisdiction classification is based on governed data ({juris})."
+    juris = spec.slots.get("jurisdiction_primary") or "current site records"
+    return f"Jurisdiction classification is based on current site records ({juris})."
 
 
 def _verification_steps(spec: DraftSpec) -> tuple[str, ...]:

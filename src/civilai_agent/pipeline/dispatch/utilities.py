@@ -322,7 +322,7 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
         stems.extend(
             [
                 "State that centralized wastewater is not available; OSSF/septic is required.",
-                "Identify OSSF permitting authority from governed facts when present.",
+                "Identify OSSF permitting authority from known site facts when present.",
                 "Note lot-size feasibility depends on parcel area and system type (advanced ≥1.0 ac, "
                 "conventional ≥1.5 ac) when applicable.",
             ]
@@ -366,7 +366,7 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
             [
                 "Centralized wastewater may apply when provider and main distance are confirmed.",
                 "Do NOT state OSSF is not required when main distance is unconfirmed.",
-                "Describe connection standards only when governed facts support them.",
+                "Describe connection standards only when known site facts support them.",
             ]
         )
         if ww_distance is None:
@@ -393,11 +393,11 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
     if water_provider and ccn_provider_confirmed(facts_payload, "water"):
         if water_distance is not None:
             stems.append(
-                f"Potable water provider from governed CCN facts: {water_provider}; "
+                f"Potable water provider from CCN records: {water_provider}; "
                 f"nearest water main ≈ {water_distance:.0f} ft (GIS proximity only)."
             )
         else:
-            stems.append(f"Potable water provider from governed CCN facts: {water_provider}.")
+            stems.append(f"Potable water provider from CCN records: {water_provider}.")
     elif water_provider:
         stems.append("Potable water provider is pending CCN confirmation — do NOT name a provider.")
         missing_inputs.append(_PROVIDER_UNCONFIRMED_GAP)
@@ -412,8 +412,8 @@ def dispatch_utilities(ctx: SectionContext) -> DraftSpec:
 
     if power_provider and ccn_provider_confirmed(facts_payload, "electric"):
         stems.append(
-            f"Electric provider from governed CCN facts: {power_provider}. "
-            "Do not default to Austin Energy unless governed facts confirm it."
+            f"Electric provider from CCN records: {power_provider}. "
+            "Do not default to Austin Energy unless known site facts confirm it."
         )
     elif power_provider:
         stems.append(

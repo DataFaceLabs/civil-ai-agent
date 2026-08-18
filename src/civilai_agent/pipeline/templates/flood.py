@@ -9,7 +9,8 @@ from civilai_agent.pipeline.templates.format import headed_section
 _TIER1_BRANCHES = frozenset({"flood.zone_x"})
 
 _PANEL_GAP_TEXT = (
-    "FIRM Community Panel Number and effective date could not be confirmed from governed data."
+    "FIRM Community Panel Number and effective date are not currently known "
+    "and should be confirmed."
 )
 
 
@@ -46,7 +47,7 @@ def _panel_sentence(spec: DraftSpec) -> str:
         return (
             f"According to the Flood Insurance Rate Map (FIRM) for {county} County, Texas, "
             f"Community Panel Number {panel}, the property is {outcome}. "
-            f"FIRM panel effective date could not be confirmed from governed data."
+            f"FIRM panel effective date is not currently known and should be confirmed."
         )
     return (
         f"According to the Flood Insurance Rate Map (FIRM) for {county} County, Texas, "
