@@ -161,7 +161,7 @@ def test_section_draft_blocks_when_entity_and_fields_missing(mock_build: MagicMo
     assert (
         response.artifacts[0].metadata.get("blocked_reason") == "missing_entity_and_field_context"
     )
-    assert "entity_id" in response.message.lower()
+    assert "parcel is not resolved" in response.message.lower()
     assert any("missing entity_id" in w.lower() for w in response.guardrail_warnings)
 
 

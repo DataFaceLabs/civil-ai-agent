@@ -20,7 +20,7 @@ _EDWARDS_ZONE_GAP = MissingInput(
     name="edwards_aquifer_zone",
     why_needed=(
         "Edwards Aquifer zone classification (Recharge / Contributing / outside) "
-        "could not be confirmed from governed data."
+        "is not currently known and should be confirmed."
     ),
     resolution="data-gap",
 )
@@ -233,7 +233,7 @@ def _cwqz_stems(
         gaps.append(_WATERWAY_CLASS_GAP)
     else:
         stems.append(
-            "No jurisdictional waterway requiring a CWQZ setback was identified from governed data."
+            "No jurisdictional waterway requiring a CWQZ setback was identified; this should be confirmed."
         )
 
     return stems, gaps
@@ -257,8 +257,9 @@ def _watershed_ehz_stems(
 
     if _is_pending_placeholder(erosion_hazard):
         stems.append(
-            "Erosion Hazard Zone (EHZ) overlay classification is pending from governed data; "
-            "confirm EHZ applicability with City of Austin GIS before concluding encroachment."
+            "Erosion Hazard Zone (EHZ) overlay classification is not currently known and "
+            "should be confirmed; confirm EHZ applicability with City of Austin GIS before "
+            "concluding encroachment."
         )
         gaps.append(
             MissingInput(
@@ -272,8 +273,8 @@ def _watershed_ehz_stems(
 
     if watershed_name and in_travis and cwqz_setback_ft is None:
         stems.append(
-            "When no on-site CWQZ setback is derived, state that governed data did not identify "
-            "an adjacent jurisdictional waterway requiring a Critical Water Quality Zone buffer; "
+            "When no on-site CWQZ setback is derived, state that no adjacent jurisdictional "
+            "waterway requiring a Critical Water Quality Zone buffer was identified; "
             "verify off-site intermediate waterway buffers with jurisdiction GIS."
         )
 
@@ -424,7 +425,7 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
             tier = 2
             stems.extend(
                 [
-                    "Edwards Aquifer zone reads as outside in governed data but TCEQ overlay "
+                    "Edwards Aquifer zone reads as outside in current site records but TCEQ overlay "
                     "confirmation is absent — do NOT assert the site is outside the Recharge, "
                     "Contributing, or Transition zones.",
                     "Recommend TCEQ Edwards Aquifer viewer verification before any outside conclusion.",
@@ -466,7 +467,7 @@ def dispatch_environmental(ctx: SectionContext) -> DraftSpec:
         if water_quality_classification:
             wq_parts.append(f"classification {water_quality_classification}")
         stems.append(
-            "Water-quality classification from governed facts: "
+            "Water-quality classification from known site facts: "
             + "; ".join(wq_parts)
             + ". Do not invent numeric WQ criteria beyond these labels."
         )

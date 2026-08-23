@@ -141,8 +141,8 @@ def _missing_section_inputs_response(context: WorkbenchContext) -> AgentResponse
         return None
     section = context.active_section_id or "section"
     message = (
-        f"Could not draft the {section} section because no resolved entity_id was provided "
-        "and no governed field values were available. Resolve the parcel/address before "
+        f"Could not draft the {section} section because the parcel is not resolved and "
+        "site facts are not currently known. Resolve the parcel/address before "
         "requesting a section draft."
     )
     return AgentResponse(
@@ -156,7 +156,7 @@ def _missing_section_inputs_response(context: WorkbenchContext) -> AgentResponse
                 claims=(),
                 data_gaps=(
                     "Missing entity_id — resolve parcel/address before drafting.",
-                    "No governed field_context values were supplied.",
+                    "No known site facts were supplied.",
                 ),
                 body=message,
                 metadata={"blocked_reason": "missing_entity_and_field_context"},
@@ -171,7 +171,7 @@ def _missing_section_inputs_response(context: WorkbenchContext) -> AgentResponse
             ),
             "data_gaps": (
                 "Missing entity_id — resolve parcel/address before drafting.",
-                "No governed field_context values were supplied.",
+                "No known site facts were supplied.",
             ),
             "sources": (),
         },
