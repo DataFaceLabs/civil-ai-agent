@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from civilai_agent.models.topic_brief import TopicBrief
+
 MissingInputResolution = Literal["client", "records", "web", "data-gap"]
 
 
@@ -35,6 +37,7 @@ class DraftSpec(BaseModel):
     stems: list[str] = Field(default_factory=list)
     missing_inputs: list[MissingInput] = Field(default_factory=list)
     searchable_gaps: list[str] = Field(default_factory=list)
+    topic_briefs: list[TopicBrief] = Field(default_factory=list)
 
     @field_validator("tier")
     @classmethod

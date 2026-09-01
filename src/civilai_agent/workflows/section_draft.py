@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from civilai_agent.models.context import WorkbenchContext
+from civilai_agent.pipeline.topic_brief_prompt import format_topic_briefs_block
 from civilai_agent.workflows.assistant_chat import assistant_chat_prompt
 
 STRUCTURED_DRAFT_INSTRUCTION = """
@@ -58,6 +59,9 @@ def section_draft_prompt(context: WorkbenchContext) -> str:
         for key, value in sorted(context.field_context.items()):
             if value.strip():
                 parts.append(f"  {key}: {value}")
+    topic_block = format_topic_briefs_block(context.topic_briefs)
+    if topic_block:
+        parts.extend(["", topic_block])
     parts.extend(["", STRUCTURED_DRAFT_INSTRUCTION])
     return "\n".join(parts)
 

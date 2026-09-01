@@ -12,6 +12,7 @@ from civilai_agent.agents.civil_analyst import build_model
 from civilai_agent.guardrails.finalize import finalize_text_output
 from civilai_agent.guardrails.structured import SectionDraftOutput
 from civilai_agent.pipeline.specs import DraftSpec
+from civilai_agent.pipeline.topic_brief_prompt import format_topic_briefs_block
 from civilai_agent.workflows.section_draft import STRUCTURED_DRAFT_INSTRUCTION
 
 RENDERER_SYSTEM_PROMPT = """
@@ -32,7 +33,8 @@ Rules:
   Compose dumps or robotic stems ("rule extraction pending", "Pending user input.").
 - Do not invent "(See Exhibit: ...)" callouts. Cite an exhibit only when AVAILABLE_EXHIBITS
   (in known site facts or the formatting block) lists that sheet/map.
-- No tools are available; all context is injected below. Leave sources empty.
+- When Topic briefs are provided below, paraphrase them in suggested_language; do not
+  re-search ordinances or invent numeric standards absent from brief fields.
 - When Citations include ArcGIS Map Viewer URLs (apps/mapviewer), include each in
   suggested_language as a markdown link using the citation source_name as the label:
   [source_name](url). Do not omit these GIS viewer HREFs from the draft prose.
@@ -109,6 +111,9 @@ def build_render_prompt(spec: DraftSpec, *, format_directive: str = "") -> str:
         "Missing inputs (surface each in verification_steps and/or data_gaps):",
         _compact(missing),
     ]
+    topic_block = format_topic_briefs_block(spec.topic_briefs)
+    if topic_block:
+        parts += ["", topic_block]
     if format_directive.strip():
         parts += [
             "",
