@@ -25,6 +25,67 @@ _PROPOSED_USE_GAP = MissingInput(
 )
 
 
+# civil-ai-data#669 replaced the Austin code-prefix CASE ladder with a join on
+# per-district rule packs, and `density_limits.absence_reason` now names *why* a
+# parcel has no permitted-use derivation. Three of the four states are tracked
+# gaps with owners, not facts about the world -- so the writer must say which one
+# it is rather than flattening all of them to "not currently known", which reads
+# as "go find out yourself" for something we already know the answer to.
+#
+# These are instructions to the writer, not customer prose. The customer-facing
+# wording for the field itself lives in the data platform's
+# docs/reference/platform_code_vocabulary.yaml; duplicating it here would give
+# one string two homes.
+_ABSENCE_STEMS: dict[str, str] = {
+    "no_pack_for_authority": (
+        "The zoning district is known, but this jurisdiction's permitted-use tables "
+        "have not been onboarded into governed data yet. Say that plainly -- this is "
+        "a known coverage gap on our side, not an unknown. Do not imply the district's "
+        "rules are unknowable or that the client must discover them unaided; point to "
+        "the jurisdiction's own code as the authority."
+    ),
+    "code_unrecognised": (
+        "This jurisdiction's code is onboarded, but this specific district is not among "
+        "those held -- often a planned-unit, overlay or legacy district. Say so, and "
+        "recommend reading the district directly from the ordinance."
+    ),
+    "uses_not_recorded": (
+        "Dimensional standards are held for this district but its permitted-use table "
+        "has not been extracted. Distinguish the two: setbacks, height and coverage may "
+        "be available where allowed uses are not."
+    ),
+}
+
+_ABSENCE_GAPS: dict[str, str] = {
+    "no_pack_for_authority": (
+        "This jurisdiction's use and density tables are not yet in governed data, so "
+        "allowed uses cannot be derived for any district it zones."
+    ),
+    "code_unrecognised": (
+        "This district is absent from the jurisdiction's rule pack, so its allowed uses "
+        "cannot be derived even though the jurisdiction is onboarded."
+    ),
+    "uses_not_recorded": (
+        "This district's permitted-use table has not been extracted, so allowed uses "
+        "cannot be derived from its dimensional standards alone."
+    ),
+}
+
+
+def _absence_reason(inner: dict[str, Any]) -> str | None:
+    """Return the typed reason a parcel has no use derivation, if governed data names one."""
+    raw = inner.get("density_limits")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(raw, dict):
+        return None
+    reason = raw.get("absence_reason")
+    return str(reason) if reason in _ABSENCE_STEMS else None
+
+
 def _inner_facts(facts: dict[str, Any] | None) -> dict[str, Any]:
     if not isinstance(facts, dict):
         return {}
@@ -276,6 +337,16 @@ def dispatch_zoning(ctx: SectionContext) -> DraftSpec:
                         "Combining/overlay districts materially change use and density rules "
                         "and are not captured by the current zoning connector."
                     ),
+                    resolution="data-gap",
+                )
+            )
+        absence = _absence_reason(inner)
+        if absence is not None:
+            stems.append(_ABSENCE_STEMS[absence])
+            missing_inputs.append(
+                MissingInput(
+                    name=f"zoning_uses:{absence}",
+                    why_needed=_ABSENCE_GAPS[absence],
                     resolution="data-gap",
                 )
             )
