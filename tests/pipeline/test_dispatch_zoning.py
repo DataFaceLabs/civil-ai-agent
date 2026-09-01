@@ -351,3 +351,79 @@ def test_pending_flag_variants(flags: list[str], expected: str) -> None:
         )
     )
     assert spec.branch_id == expected
+
+
+# --- typed use-absence reaches the writer (civil-ai-data#669 / #670) --------
+
+
+def _seattle_ctx(density_limits: str | None) -> SectionContext:
+    """A zoned city parcel whose jurisdiction has no rule pack.
+
+    1600 9th Ave, Seattle: the case that shipped the internal sentinel
+    "Non Texas Zoning Bootstrap Barred" to a customer.
+    """
+    facts: dict[str, Any] = {
+        "facts": {
+            "zoning_code": "DMC 340/290-440",
+            "zoning_base": "Downtown Mixed Commercial 340/290-440",
+            "allowed_use_flags": "[]",
+            "overlays": "[]",
+        }
+    }
+    if density_limits is not None:
+        facts["facts"]["density_limits"] = density_limits
+    return _ctx(
+        facts=facts,
+        determinations=_zoning_det(
+            **{
+                "jurisdiction.jurisdiction_primary": "City of Seattle",
+                "jurisdiction.in_city_limits": True,
+                "jurisdiction.in_etj": False,
+            }
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("reason", "expected"),
+    [
+        ("no_pack_for_authority", "have not been onboarded"),
+        ("code_unrecognised", "not among\nthose held"),
+        ("uses_not_recorded", "has not been extracted"),
+    ],
+)
+def test_each_absence_reason_reaches_the_stems(reason: str, expected: str) -> None:
+    """Each names a different piece of work, so each must read differently."""
+    spec = dispatch_zoning(_seattle_ctx(f'{{"absence_reason":"{reason}"}}'))
+    joined = " ".join(spec.stems).replace("\n", " ")
+    assert expected.replace("\n", " ") in joined
+
+
+def test_absence_is_registered_as_a_tracked_gap() -> None:
+    """A known coverage gap must be countable, not just narrated."""
+    spec = dispatch_zoning(_seattle_ctx('{"absence_reason":"no_pack_for_authority"}'))
+    names = [m.name for m in spec.missing_inputs]
+    assert "zoning_uses:no_pack_for_authority" in names
+    gap = next(m for m in spec.missing_inputs if m.name.startswith("zoning_uses:"))
+    assert gap.resolution == "data-gap"
+
+
+def test_no_absence_stem_when_uses_are_derived() -> None:
+    """A district we can answer for must not carry an apology."""
+    spec = dispatch_zoning(_seattle_ctx('{"development_pattern":"single_family_residential"}'))
+    assert not any(m.name.startswith("zoning_uses:") for m in spec.missing_inputs)
+    assert not any("onboarded" in stem for stem in spec.stems)
+
+
+def test_unparseable_or_absent_density_limits_is_not_a_gap() -> None:
+    """Older artifacts predate absence_reason; they must not grow a false gap."""
+    for payload in (None, "not json", '{"constraint_source":"inferred"}'):
+        spec = dispatch_zoning(_seattle_ctx(payload))
+        assert not any(m.name.startswith("zoning_uses:") for m in spec.missing_inputs)
+
+
+def test_the_retired_sentinel_is_not_a_recognised_reason() -> None:
+    """non_texas_zoning_bootstrap_barred must never round-trip into prose again."""
+    spec = dispatch_zoning(_seattle_ctx('{"absence_reason":"non_texas_zoning_bootstrap_barred"}'))
+    assert not any("bootstrap" in stem.lower() for stem in spec.stems)
+    assert not any(m.name.startswith("zoning_uses:") for m in spec.missing_inputs)
