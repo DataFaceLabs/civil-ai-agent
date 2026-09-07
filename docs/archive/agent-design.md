@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Purpose, workflows and evidence contract move to 10 §1-4 (AG-W1-W4, support checks).
+>
+> Not current. Do not work from this document.
+
 # Agent Design
 
 ## Purpose

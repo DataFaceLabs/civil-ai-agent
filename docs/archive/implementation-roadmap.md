@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Delivery phases move to 10 §12 (AG-S0-S5) sequenced by the package index; per-task specs replace epics/stories.
+>
+> Not current. Do not work from this document.
+
 # Implementation Roadmap
 
 ## Purpose

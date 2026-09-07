@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Runtime, job lifecycle, ownership and recovery move to 10 §5 and AG-13-16.
+>
+> Not current. Do not work from this document.
+
 # Architecture
 
 ## Status

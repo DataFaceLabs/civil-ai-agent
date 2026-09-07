@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Model/prompt configuration is governed by 10 AG-13 (immutable per-run config) and AG-22 (pinned rollout, kill switch); prompt and model versions are release inputs per 08 §7.
+>
+> Not current. Do not work from this document.
+
 # Civil Analyst Agent — Tuning & Disruptor Strategy
 
 *Authored 2026-07-04. Synthesizes the vision docs (`agent-design.md`,
