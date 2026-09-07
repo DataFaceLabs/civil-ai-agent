@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Hardening cases move to 10 §10 (AE-01-20), each requiring a recorded red and green run.
+>
+> Not current. Do not work from this document.
+
 # Agent eval hardening (feature/agent-eval-hardening)
 
 **Scope:** Section draft accuracy and transparency on James's Strands path.  

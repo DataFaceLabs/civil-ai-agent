@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Gates move to 10 §7 thresholds and 11 PG-01-08; readiness is question x scope x use x release.
+>
+> Not current. Do not work from this document.
+
 # Readiness Gates
 
 ## Purpose

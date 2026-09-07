@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> FE surface behaviour moves to 10 §11 and AG-21; 09 owns the Trust surface.
+>
+> Not current. Do not work from this document.
+
 # Workbench Integration
 
 ## Purpose
