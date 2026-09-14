@@ -1,0 +1,5 @@
+#!/bin/sh
+# Carried over from .git/hooks/pre-push on 2026-09-07 when this repo moved to a
+# versioned core.hooksPath. core.hooksPath replaces the hook directory outright,
+# so this must live here or the gauntlet silently stops running on push.
+make gauntlet

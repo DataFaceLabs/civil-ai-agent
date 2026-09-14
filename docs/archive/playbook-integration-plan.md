@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Integration sequencing moves to 10 §12; section-playbooks.md and template-and-section-guidance.md remain live.
+>
+> Not current. Do not work from this document.
+
 # Playbook Integration Plan — Sequential, One Rule at a Time
 
 *How we port the validated `feasibility-playbook/` decision procedures into the agent

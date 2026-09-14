@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Evaluation moves to 10 §7 -- 60 independent cases, three isolated trials, held-out labels, calibrated grading. Note 10 leaves customer-study use as an unresolved rights decision (08 §12.2).
+>
+> Not current. Do not work from this document.
+
 # Evaluation Strategy
 
 ## Purpose

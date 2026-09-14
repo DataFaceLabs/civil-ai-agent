@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from civilai_agent.models.search_policy import SearchRunPolicy
+from civilai_agent.models.topic_brief import TopicBrief
 
 
 class AgentWorkflow(StrEnum):
@@ -56,6 +57,8 @@ class WorkbenchContext(BaseModel):
     property_address: str | None = None
     chat_system_prompt: str = ""
     chat_instructions: tuple[str, ...] = ()
+    # Topic Hydrate briefs prefetched by platform for zoning section drafts.
+    topic_briefs: tuple[TopicBrief, ...] = ()
 
 
 ArtifactType = Literal[

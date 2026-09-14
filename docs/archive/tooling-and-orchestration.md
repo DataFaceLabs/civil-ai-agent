@@ -1,3 +1,8 @@
+> **ARCHIVED 2026-09-07.** Superseded by [10 — Agent Runtime and Evaluation PRD](../10-Agent-Runtime-and-Evaluation-PRD.md).
+> Tool boundaries move to 10 §6 (server-side allowlisted typed tools) and the runtime decision to AG-23.
+>
+> Not current. Do not work from this document.
+
 # Tooling And Orchestration
 
 ## Purpose

@@ -13,6 +13,7 @@ from civilai_agent.models.context import (
     TraceSummary,
     WorkbenchContext,
 )
+from civilai_agent.models.topic_brief import TopicBrief
 from civilai_agent.pipeline.fetch import (
     SectionContext,
     false_ic_gap_warning,
@@ -118,12 +119,15 @@ def _run_zoning_pipeline(
     dry_run: bool,
     format_directive: str = "",
     tenant_system_prompt: str = "",
+    topic_briefs: tuple[TopicBrief, ...] = (),
 ) -> AgentResponse:
     from civilai_agent.pipeline.dispatch.zoning import dispatch_zoning
     from civilai_agent.pipeline.render import build_render_prompt
     from civilai_agent.pipeline.templates.zoning import render_zoning_tier0
 
     spec = dispatch_zoning(ctx)
+    if topic_briefs:
+        spec = spec.model_copy(update={"topic_briefs": list(topic_briefs)})
 
     if spec.tier == 0:
         structured = render_zoning_tier0(spec)
@@ -462,6 +466,7 @@ def run_section_draft(context: WorkbenchContext, *, dry_run: bool = False) -> Ag
             dry_run=dry_run,
             format_directive=format_directive,
             tenant_system_prompt=tenant_system_prompt,
+            topic_briefs=context.topic_briefs,
         )
 
     if section_id == "flood":
