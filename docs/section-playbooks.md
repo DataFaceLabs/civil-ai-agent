@@ -192,23 +192,34 @@ prohibits further subdivision, flag it.
 ## Section 3.4 — Impervious Cover
 
 **Required facts:**
-- Zoning-based IC limit (from zoning code lookup)
-- Watershed-based IC limit (from watershed classification + IC table)
-- Controlling limit (the more restrictive of the two)
-- IC transfer credit availability
-- Barton Springs Zone IC limits (if applicable — more restrictive)
+- Prefer the request-time **`impervious_cover_authority`** determination / workbench fields
+  `IMPERVIOUS_COVER_LIMIT`, `IMPERVIOUS_COVER_MAX_AREA`, and `IMPERVIOUS_REGS` when present
+  (county subdivision authority packs for ETJ / unincorporated; municipal DSI for zoned cities).
+- Fall back to zoning-based IC limit (DSI / hydrate) and watershed-based IC when the
+  authority determination is absent.
+- Controlling limit is **not** auto-min'd across authorities in Phase 1 — render the
+  packed dual-branch / county-primary values the workbench already computed.
+- Max allowed IC area is **gross site area x limit %**; never invent net/ROW-adjusted
+  footage. If a waiver sets no limit, do not invent a max area.
+- IC transfer credit availability and Barton Springs Zone overlays remain separate checks.
 
-**Standard text:**
+**Rendering rule (ADR-0006):** Do not re-derive county code limits or recompute acreage x %.
+Echo the determination / field values and cite the instrument already on the fields.
+
+**Standard text (municipal / watershed fallback):**
 > "The maximum impervious cover for the subject property is [limit]%.  The zoning
 > district [CS / MF-4 / etc.] allows up to [zoning_ic]%, while the [Suburban /
 > Water Supply Rural / Urban] watershed classification limits impervious cover to
 > [watershed_ic]% per CoA LDC §25-8-[table].  The [zoning / watershed] limit is
 > controlling as the more restrictive standard."
 
-**Travis County unincorporated:**
-> "Travis County Code §482.216 limits impervious cover to [45% for commercial / 30%
-> for residential lots < 1 acre average] for development within the unincorporated
-> county."
+**County subdivision / ETJ (from authority determination):**
+> Use `IMPERVIOUS_REGS` prose and include max area when present, e.g.
+> "TC Code Section 482.216 limits impervious cover in a commercial subdivision to 45%.
+> At [acreage] acres (gross site area), maximum allowed impervious cover is [max_ic_sqft]
+> sq ft ([max_ic_acres] ac)." When dual-branch, state both commercial and residential
+> and note proposed use must be confirmed. State-road waiver only when the Project flag
+> confirmed it — never imply GIS frontage alone waived the limit.
 
 **LCRA HLWO:**
 > "The subject property is within the LCRA Highland Lakes Watershed Ordinance (HLWO)
